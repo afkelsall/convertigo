@@ -1,0 +1,142 @@
+[
+  {
+    "note": "standard symbol prefix",
+    "input": "$100",
+    "expected": [{ "currency": "USD", "value": 100, "original": "$100" }]
+  },
+  {
+    "note": "symbol prefix with decimal",
+    "input": "$99.99",
+    "expected": [{ "currency": "USD", "value": 99.99, "original": "$99.99" }]
+  },
+  {
+    "note": "euro symbol",
+    "input": "€50",
+    "expected": [{ "currency": "EUR", "value": 50, "original": "€50" }]
+  },
+  {
+    "note": "pound symbol with decimal",
+    "input": "£25.50",
+    "expected": [{ "currency": "GBP", "value": 25.5, "original": "£25.50" }]
+  },
+  {
+    "note": "yen symbol",
+    "input": "¥1000",
+    "expected": [{ "currency": "JPY", "value": 1000, "original": "¥1000" }]
+  },
+  {
+    "note": "country-prefixed dollar: US$",
+    "input": "US$2",
+    "expected": [{ "currency": "USD", "value": 2, "original": "US$2" }]
+  },
+  {
+    "note": "country-prefixed dollar: C$",
+    "input": "C$300",
+    "expected": [{ "currency": "CAD", "value": 300, "original": "C$300" }]
+  },
+  {
+    "note": "country-prefixed dollar: Can$",
+    "input": "Can$300",
+    "expected": [{ "currency": "CAD", "value": 300, "original": "Can$300" }]
+  },
+  {
+    "note": "code before number: USD",
+    "input": "USD 52",
+    "expected": [{ "currency": "USD", "value": 52, "original": "USD 52" }]
+  },
+  {
+    "note": "code before number: EUR",
+    "input": "EUR 40",
+    "expected": [{ "currency": "EUR", "value": 40, "original": "EUR 40" }]
+  },
+  {
+    "note": "currency alias: SF = CHF (Swiss Franc)",
+    "input": "SF 65.50",
+    "expected": [{ "currency": "CHF", "value": 65.5, "original": "SF 65.50" }]
+  },
+  {
+    "note": "thousands separator",
+    "input": "$95,000",
+    "expected": [{ "currency": "USD", "value": 95000, "original": "$95,000" }]
+  },
+  {
+    "note": "thousands separator in suffix position",
+    "input": "1,500 USD",
+    "expected": [{ "currency": "USD", "value": 1500, "original": "1,500 USD" }]
+  },
+  {
+    "note": "billion multiplier word",
+    "input": "$7.3 billion",
+    "expected": [{ "currency": "USD", "value": 7300000000, "original": "$7.3 billion" }]
+  },
+  {
+    "note": "K multiplier suffix",
+    "input": "$350K",
+    "expected": [{ "currency": "USD", "value": 350000, "original": "$350K" }]
+  },
+  {
+    "note": "million multiplier word",
+    "input": "$5 million",
+    "expected": [{ "currency": "USD", "value": 5000000, "original": "$5 million" }]
+  },
+  {
+    "note": "M multiplier suffix",
+    "input": "€1.5M",
+    "expected": [{ "currency": "EUR", "value": 1500000, "original": "€1.5M" }]
+  },
+  {
+    "note": "M multiplier — currency only, not also metres (regression)",
+    "input": "$5.2M",
+    "expected": [{ "currency": "USD", "value": 5200000, "original": "$5.2M" }]
+  },
+  {
+    "note": "code after number",
+    "input": "100 USD",
+    "expected": [{ "currency": "USD", "value": 100, "original": "100 USD" }]
+  },
+  {
+    "note": "code after number with decimal",
+    "input": "50.00 EUR",
+    "expected": [{ "currency": "EUR", "value": 50, "original": "50.00 EUR" }]
+  },
+  {
+    "note": "multiple currencies in one string",
+    "input": "The item costs $29.99 plus £5 shipping",
+    "expected": [
+      { "currency": "USD", "value": 29.99, "original": "$29.99" },
+      { "currency": "GBP", "value": 5, "original": "£5" }
+    ]
+  },
+  {
+    "note": "code after number: CAD",
+    "input": "Price: 200 CAD",
+    "expected": [{ "currency": "CAD", "value": 200, "original": "200 CAD" }]
+  },
+  {
+    "note": "AUD code before number — skip (already target currency)",
+    "input": "AUD 500",
+    "expected": []
+  },
+  {
+    "note": "AUD code after number — skip (already target currency)",
+    "input": "500 AUD",
+    "expected": []
+  },
+  {
+    "note": "lone dollar sign with no number — no match",
+    "input": "$ sign only",
+    "expected": []
+  },
+  {
+    "note": "AU dollar site context — bare $ treated as AUD, skipped",
+    "input": "$89",
+    "dollarCurrency": "AUD",
+    "expected": []
+  },
+  {
+    "note": "AU dollar site — bare $ skipped, explicit USD code still converts",
+    "input": "$89 product on an AU site, also 10 USD",
+    "dollarCurrency": "AUD",
+    "expected": [{ "currency": "USD", "value": 10, "original": "10 USD" }]
+  }
+]

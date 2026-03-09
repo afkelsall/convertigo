@@ -1,0 +1,15 @@
+# Claude Code local settings
+.claude/settings.local.json
+
+# Windows junk
+*.lnk
+Thumbs.db
+desktop.ini
+
+# OS junk
+.DS_Store
+
+# If you ever add packaging/build output
+web-ext-artifacts/
+*.zip
+*.xpi

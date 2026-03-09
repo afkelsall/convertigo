@@ -1,0 +1,13 @@
+[
+  { "value": 100,          "currency": "USD", "rate": 0.625, "expected": "AU$ 160.00"           },
+  { "value": 50,           "currency": "EUR", "rate": 0.58,  "expected": "AU$ 86.21"            },
+  { "value": 25,           "currency": "GBP", "rate": 0.5,   "expected": "AU$ 50.00"            },
+  { "value": 1000,         "currency": "JPY", "rate": 95.0,  "expected": "AU$ 10.53"            },
+  { "value": 100,          "currency": "AUD", "rate": null,  "expected": null                    },
+  { "value": 100,          "currency": "XYZ", "rate": null,  "expected": null                    },
+
+  { "value": 7300000000,   "currency": "USD", "rate": 0.625, "multiplier": "billion",  "expected": "AU$ 11.68 billion" },
+  { "value": 350000,       "currency": "USD", "rate": 0.625, "multiplier": "K",        "expected": "AU$ 560.00K"       },
+  { "value": 5000000,      "currency": "USD", "rate": 0.625, "multiplier": "million",  "expected": "AU$ 8.00 million"  },
+  { "value": 1500000,      "currency": "EUR", "rate": 0.58,  "multiplier": "M",        "expected": "AU$ 2.59M"         }
+]

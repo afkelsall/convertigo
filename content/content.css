@@ -1,0 +1,185 @@
+/* content.css - Unit converter popup styles */
+
+#unit-converter-popup {
+  position: fixed !important;
+  top: 16px !important;
+  right: 16px !important;
+  z-index: 2147483647 !important;
+  background: #1a1a2e !important;
+  color: #e0e0e0 !important;
+  border-radius: 8px !important;
+  padding: 10px 14px 12px !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: normal !important;
+  line-height: 1.4 !important;
+  text-align: left !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  text-decoration: none !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255,255,255,0.08) !important;
+  max-width: 300px !important;
+  max-height: 360px !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+  cursor: default !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  animation: uc-fadein 0.15s ease !important;
+}
+
+@keyframes uc-fadein {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#unit-converter-popup .uc-label {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: #7a7a9a !important;
+  margin-bottom: 8px !important;
+  display: block !important;
+  padding-right: 44px !important;
+}
+
+#unit-converter-popup .uc-btn-group {
+  position: absolute !important;
+  top: 6px !important;
+  right: 8px !important;
+  display: flex !important;
+  gap: 2px !important;
+  align-items: center !important;
+}
+
+#unit-converter-popup .uc-close,
+#unit-converter-popup .uc-copy-test {
+  background: none !important;
+  border: none !important;
+  color: #7a7a9a !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  padding: 2px 4px !important;
+  border-radius: 4px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: color 0.15s, background 0.15s !important;
+}
+
+#unit-converter-popup .uc-close {
+  font-size: 16px !important;
+}
+
+#unit-converter-popup .uc-copy-test {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  font-family: monospace !important;
+}
+
+#unit-converter-popup .uc-close:hover,
+#unit-converter-popup .uc-copy-test:hover {
+  color: #e0e0e0 !important;
+  background: rgba(255,255,255,0.1) !important;
+}
+
+#unit-converter-popup .uc-reconstructed {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #a8e6cf !important;
+  background: rgba(168, 230, 207, 0.08) !important;
+  border-radius: 5px !important;
+  padding: 6px 8px !important;
+  margin-bottom: 8px !important;
+  word-break: break-word !important;
+  line-height: 1.5 !important;
+}
+
+#unit-converter-popup .uc-divider {
+  height: 1px !important;
+  background: rgba(255,255,255,0.08) !important;
+  margin-bottom: 8px !important;
+}
+
+#unit-converter-popup .uc-results {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+#unit-converter-popup .uc-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 4px 0 !important;
+  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+}
+
+#unit-converter-popup .uc-row:last-child {
+  border-bottom: none !important;
+  padding-bottom: 0 !important;
+}
+
+#unit-converter-popup .uc-row.uc-row-grouped {
+  border-bottom: none !important;
+  padding-bottom: 0 !important;
+}
+
+#unit-converter-popup .uc-row.uc-row-cont {
+  padding-top: 0 !important;
+}
+
+#unit-converter-popup .uc-original {
+  color: #9898b8 !important;
+  font-size: 13px !important;
+  white-space: nowrap !important;
+}
+
+#unit-converter-popup .uc-arrow {
+  color: #4a4a6a !important;
+  font-size: 13px !important;
+  flex-shrink: 0 !important;
+}
+
+#unit-converter-popup .uc-converted {
+  color: #a8e6cf !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+}
+
+/* Currency rows — blue accent instead of green */
+#unit-converter-popup .uc-currency .uc-converted {
+  color: #a8d8ea !important;
+}
+
+/* Currency loading spinner */
+#unit-converter-popup .uc-currency-spinner {
+  font-size: 12px !important;
+  color: #4a4a6a !important;
+  padding: 4px 0 !important;
+  font-style: italic !important;
+  animation: uc-pulse 1s ease-in-out infinite !important;
+}
+
+@keyframes uc-pulse {
+  0%, 100% { opacity: 0.3; }
+  50%       { opacity: 1; }
+}
+
+/* Currency rate fetch error */
+#unit-converter-popup .uc-currency-error {
+  font-size: 12px !important;
+  color: #f5c842 !important;
+  padding: 4px 0 !important;
+  font-style: italic !important;
+}
+
+/* Rate date footnote */
+#unit-converter-popup .uc-rate-date {
+  font-size: 10px !important;
+  color: #4a4a6a !important;
+  margin-top: 4px !important;
+  font-style: italic !important;
+}

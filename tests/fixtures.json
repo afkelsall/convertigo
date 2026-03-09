@@ -1,0 +1,182 @@
+[
+  {
+    "input": "The board is 12 inches wide",
+    "expected": ["12 inches → 30.48 cm"]
+  },
+  {
+    "input": "The board is 2-3 inches wide",
+    "expected": ["2-3 inches → 5.08-7.62 cm"]
+  },
+  {
+    "input": "Cut it to 2-3in",
+    "expected": ["2-3in → 5.08-7.62 cm"]
+  },
+  {
+    "input": "He is 5.5 ft tall",
+    "expected": ["5.5 ft → 1.68 m"]
+  },
+  {
+    "input": "Cut it to 3/4 in",
+    "expected": ["3/4 in → 1.91 cm"]
+  },
+  {
+    "input": "Gap is 1 1/2 inches",
+    "expected": ["1 1/2 inches → 3.81 cm"]
+  },
+  {
+    "input": "The pipe is 6\" long",
+    "expected": ["6\" → 15.24 cm"]
+  },
+  {
+    "input": "Bolt is 2″ diameter",
+    "expected": ["2″ → 5.08 cm"]
+  },
+  {
+    "input": "The trail is 3.1 miles long",
+    "expected": ["3.1 miles → 4.99 km"]
+  },
+  {
+    "input": "A 5km race",
+    "expected": ["5km → 3.11 mi"]
+  },
+  {
+    "input": "Package weighs 10 lbs",
+    "expected": ["10 lbs → 4.54 kg"]
+  },
+  {
+    "input": "Add 0.2 kg of flour",
+    "expected": ["0.2 kg → 0.44 lb"]
+  },
+  {
+    "input": "Contains 500g of sugar",
+    "expected": ["500g → 17.64 oz"]
+  },
+  {
+    "input": "Use 4 oz of butter",
+    "expected": ["4 oz → 113.4 g (mass)", "4 oz → 118.29 ml (fluid)"]
+  },
+  {
+    "input": "Thickness: 2mm",
+    "expected": ["2mm → 0.08 in"]
+  },
+  {
+    "input": "Screen is 40 cm wide",
+    "expected": ["40 cm → 15.75 in"]
+  },
+  {
+    "input": "Room is 3 m long",
+    "expected": ["3 m → 9.84 ft"]
+  },
+  {
+    "input": "50 yard dash",
+    "expected": ["50 yard → 45.72 m"]
+  },
+  {
+    "input": "The truck carries 2 tons",
+    "expected": ["2 tons → 1814.37 kg (US)", "2 tons → 2032.1 kg (Imperial)"]
+  },
+  {
+    "input": "The box is 12 inches by 5 inches and weighs 3 lbs",
+    "expected": ["12 inches → 30.48 cm", "5 inches → 12.7 cm", "3 lbs → 1.36 kg"]
+  },
+  {
+    "input": "Length: 2,5 m",
+    "expected": ["2,5 m → 8.2 ft"]
+  },
+  {
+    "input": "The shelf is 1 ft wide",
+    "expected": ["1 ft → 30.48 cm"]
+  },
+  {
+    "input": "Dose is 500 mg",
+    "expected": ["500 mg → 0.02 oz"]
+  },
+  {
+    "input": "1 1/2 pounds green cabbage",
+    "expected": ["1 1/2 pounds → 680.39 g"]
+  },
+  {
+    "input": "12.35 pounds",
+    "expected": ["12.35 pounds → 5.6 kg"]
+  },
+  {
+    "input": "12.2\"D x 13.39\"W x 12.99\"H",
+    "expected": ["12.2\"D → 30.99 cm", "13.39\"W → 34.01 cm", "12.99\"H → 32.99 cm"]
+  },
+  {
+    "input": "6 Quarts",
+    "expected": ["6 Quarts → 5.68 L (US)", "6 Quarts → 6.82 L (Imperial)"]
+  },
+  {
+    "input": "1 cup of water",
+    "expected": ["1 cup → 236.59 ml"]
+  },
+  {
+    "input": "2 tablespoons butter",
+    "expected": ["2 tablespoons → 29.57 ml"]
+  },
+  {
+    "input": "1 teaspoon vanilla",
+    "expected": ["1 teaspoon → 4.93 ml"]
+  },
+  {
+    "input": "2 gallons",
+    "expected": ["2 gallons → 7.57 L (US)", "2 gallons → 9.09 L (Imperial)"]
+  },
+  {
+    "input": "500 ml",
+    "expected": ["500 ml → 2.11 cup"]
+  },
+  {
+    "input": "100 ml",
+    "expected": ["100 ml → 6.76 tbsp"]
+  },
+  {
+    "input": "5 ml",
+    "expected": ["5 ml → 1.01 tsp"]
+  },
+  {
+    "input": "1 pint",
+    "expected": ["1 pint → 473.18 ml"]
+  },
+  {
+    "input": "1 liter",
+    "expected": ["1 liter → 1.06 qt"]
+  },
+  {
+    "input": "0.5 L",
+    "expected": ["0.5 L → 2.11 cup"]
+  },
+  {
+    "input": "1 barrel of oil",
+    "expected": ["1 barrel → 119.24 L (US fluid)", "1 barrel → 158.99 L (oil)"]
+  },
+  {
+    "input": "$5.2M",
+    "expected": []
+  },
+  {
+    "input": "$100 and 5 m of rope",
+    "expected": ["5 m → 16.4 ft"]
+  },
+  {
+    "input": "He is 5'10\" tall",
+    "expected": ["5'10\" → 177.8 cm"]
+  },
+  {
+    "input": "Height: 5'6",
+    "expected": ["5'6 → 167.64 cm"]
+  },
+  {
+    "input": "Between 5'6-5'9\"",
+    "expected": ["5'6-5'9\" → 167.64-175.26 cm"]
+  },
+  {
+    "input": "About 5'10/5'11",
+    "expected": ["5'10/5'11 → 177.8-180.34 cm"]
+  },
+  {
+    "input": "Range is 5'10\"-5'11\"",
+    "expected": ["5'10\"-5'11\" → 177.8-180.34 cm"]
+  }
+]

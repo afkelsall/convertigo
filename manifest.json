@@ -1,0 +1,32 @@
+{
+  "manifest_version": 2,
+  "name": "Unit Converter",
+  "version": "1.1.0",
+  "description": "Detects measurement units and currencies in selected text and shows conversions in a popup.",
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
+  },
+  "permissions": ["storage"],
+  "browser_action": {
+    "default_title": "Unit & Currency Converter"
+  },
+  "background": {
+    "scripts": ["background/background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "lib/parser.js",
+        "lib/converter.js",
+        "lib/currency-parser.js",
+        "lib/currency-converter.js",
+        "content/content.js"
+      ],
+      "css": ["content/content.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}
