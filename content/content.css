@@ -2,8 +2,6 @@
 
 #unit-converter-popup {
   position: fixed !important;
-  top: 16px !important;
-  right: 16px !important;
   z-index: 2147483647 !important;
   background: #1a1a2e !important;
   color: #e0e0e0 !important;
@@ -28,9 +26,26 @@
   animation: uc-fadein 0.15s ease !important;
 }
 
+/* Selection popup: fixed top-right; hover popup: positioned by JS via inline style */
+#unit-converter-popup:not(.uc-popup-hover) {
+  top: 16px !important;
+  right: 16px !important;
+}
+
 @keyframes uc-fadein {
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Highlight spans for detected values on page */
+.uc-highlight {
+  border-bottom: 1px dotted rgba(168, 230, 207, 0.45) !important;
+  cursor: help !important;
+}
+
+.uc-highlight:hover {
+  border-bottom-color: rgba(168, 230, 207, 0.85) !important;
+  background: rgba(168, 230, 207, 0.06) !important;
 }
 
 #unit-converter-popup .uc-label {
