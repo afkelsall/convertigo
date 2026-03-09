@@ -1,6 +1,6 @@
 {
   "manifest_version": 2,
-  "name": "Unit Converter",
+  "name": "Convertigo",
   "version": "1.1.0",
   "description": "Detects measurement units and currencies in selected text and shows conversions in a popup.",
   "icons": {
@@ -9,7 +9,7 @@
   },
   "permissions": ["storage"],
   "browser_action": {
-    "default_title": "Unit & Currency Converter"
+    "default_title": "Convertigo"
   },
   "background": {
     "scripts": ["background/background.js"]

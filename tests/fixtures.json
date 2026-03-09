@@ -178,5 +178,25 @@
   {
     "input": "Range is 5'10\"-5'11\"",
     "expected": ["5'10\"-5'11\" → 177.8-180.34 cm"]
+  },
+  {
+    "input": "13 x 72 inches",
+    "expected": ["13 inches → 33.02 cm", "72 inches → 182.88 cm"]
+  },
+  {
+    "input": "Rug is 8x10 ft",
+    "expected": ["8 ft → 2.44 m", "10 ft → 3.05 m"]
+  },
+  {
+    "input": "Box is 12 x 8 x 5 inches",
+    "expected": ["12 inches → 30.48 cm", "8 inches → 20.32 cm", "5 inches → 12.7 cm"]
+  },
+  {
+    "input": "Panel 100 × 200 cm",
+    "expected": ["100 cm → 39.37 in", "200 cm → 78.74 in"]
+  },
+  {
+    "input": "Measures 13 x 72 inches, suitable",
+    "expected": ["13 inches → 33.02 cm", "72 inches → 182.88 cm"]
   }
 ]

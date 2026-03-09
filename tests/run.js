@@ -59,6 +59,17 @@ for (const tc of fixtures) {
 
   // Build "original → formatted" strings the same way the popup would
   const actual = parsed.flatMap(match => {
+    if (match.isDimension) {
+      return match.values.flatMap((v, i) => {
+        const results = convert(v, match.unit);
+        if (!results) return [];
+        const dimOriginal = (match.rawValues ? match.rawValues[i] : v) + ' ' + (match.unitText || match.unit);
+        return results.map(conv => {
+          const label = conv.label ? ` (${conv.label})` : '';
+          return `${dimOriginal} \u2192 ${conv.formatted}${label}`;
+        });
+      });
+    }
     let results;
     if (match.isRange) {
       const r1 = convert(match.value, match.unit);

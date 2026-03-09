@@ -1,4 +1,4 @@
-# Unit Converter - Firefox Extension
+# Convertigo - A Unit Converter - Firefox Extension
 
 Firefox Manifest V2 extension that detects measurement units in selected text and shows metric↔imperial conversions in a top-right popup.
 

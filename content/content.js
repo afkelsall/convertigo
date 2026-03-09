@@ -20,21 +20,45 @@
     const allConversions = [
       ...conversions.map(c => ({ ...c, isCurrency: false })),
       ...currencyConversions.map(c => ({ ...c, isCurrency: true }))
-    ].sort((a, b) => b.index - a.index);
+    ];
 
-    for (const { index, matchLength, suffix, convResult, isCurrency, original } of allConversions) {
-      if (!convResult) continue;
+    // Group dimension entries that share the same index into a single replacement
+    const grouped = [];
+    const dimGroups = new Map();
+    for (const c of allConversions) {
+      if (c.isDimension) {
+        const key = c.index;
+        if (!dimGroups.has(key)) {
+          const group = { ...c, dimValues: [] };
+          dimGroups.set(key, group);
+          grouped.push(group);
+        }
+        dimGroups.get(key).dimValues.push(c);
+      } else {
+        grouped.push(c);
+      }
+    }
+
+    grouped.sort((a, b) => b.index - a.index);
+
+    for (const entry of grouped) {
+      const { index, matchLength, suffix, isCurrency, original } = entry;
       let replacement;
-      if (isCurrency) {
-        // Keep the original symbol (e.g. '$') with just the converted number
-        // so "$500" becomes "$713.65" rather than "AU$ 713.65" inline
+      if (entry.dimValues) {
+        // Dimension group: "33.02 x 182.88 cm"
+        const unit = entry.dimValues[0].convResult[0].formatted.split(' ').slice(1).join(' ');
+        const nums = entry.dimValues.map(d => d.convResult[0].formatted.split(' ')[0]);
+        replacement = nums.join(' x ') + ' ' + unit + (suffix ? ' ' + suffix : '');
+      } else if (isCurrency) {
+        if (!entry.convResult) continue;
         const PREFIX_SYMBOLS = ['$', '€', '£', '¥'];
         const firstChar = original[0];
         replacement = PREFIX_SYMBOLS.includes(firstChar)
-          ? firstChar + convResult[0].number
-          : convResult[0].number;
+          ? firstChar + entry.convResult[0].number
+          : entry.convResult[0].number;
       } else {
-        replacement = convResult[0].formatted + (suffix ? ' ' + suffix : '');
+        if (!entry.convResult) continue;
+        replacement = entry.convResult[0].formatted + (suffix ? ' ' + suffix : '');
       }
       result = result.slice(0, index) + replacement + result.slice(index + matchLength);
     }
@@ -167,9 +191,9 @@
     results.className = 'uc-results';
     const seen = new Set();
 
-    conversions.forEach(({ original, suffix, convResult }) => {
+    conversions.forEach(({ original, suffix, convResult, isDimension, value }, idx) => {
       if (!convResult) return;
-      const key = `${original}`;
+      const key = isDimension ? `${original}#${idx}` : `${original}`;
       if (seen.has(key)) return;
       seen.add(key);
 
@@ -222,7 +246,14 @@
 
     // --- Synchronous unit conversion ---
     const parsed = window.UnitParser.parse(text);
-    const conversions = parsed.map((p) => {
+    const conversions = parsed.flatMap((p) => {
+      if (p.isDimension) {
+        return p.values.map((v, i) => {
+          const convResult = window.UnitConverter.convert(v, p.unit);
+          const dimOriginal = (p.rawValues ? p.rawValues[i] : v) + ' ' + (p.unitText || p.unit);
+          return convResult ? { ...p, value: v, original: dimOriginal, convResult } : null;
+        }).filter(Boolean);
+      }
       let convResult;
       if (p.isRange) {
         const r1 = window.UnitConverter.convert(p.value, p.unit);
@@ -238,8 +269,8 @@
       } else {
         convResult = window.UnitConverter.convert(p.value, p.unit);
       }
-      return { ...p, convResult };
-    }).filter(c => c.convResult);
+      return convResult ? [{ ...p, convResult }] : [];
+    });
 
     // On .au sites, bare '$' is already AUD — skip conversion for those
     const hostname = window.location.hostname;
@@ -442,10 +473,17 @@
 
     const dollarCurrency = window.location.hostname.endsWith('.au') ? 'AUD' : 'USD';
     const parsed = window.UnitParser.parse(original);
-    const conversions = parsed.map(p => ({
-      ...p,
-      convResult: window.UnitConverter.convert(p.value, p.unit)
-    })).filter(c => c.convResult);
+    const conversions = parsed.flatMap(p => {
+      if (p.isDimension) {
+        return p.values.map((v, i) => {
+          const convResult = window.UnitConverter.convert(v, p.unit);
+          const dimOriginal = (p.rawValues ? p.rawValues[i] : v) + ' ' + (p.unitText || p.unit);
+          return convResult ? { ...p, value: v, original: dimOriginal, convResult } : null;
+        }).filter(Boolean);
+      }
+      const convResult = window.UnitConverter.convert(p.value, p.unit);
+      return convResult ? [{ ...p, convResult }] : [];
+    });
     const currencyParsed = window.CurrencyParser.parse(original, { dollarCurrency });
 
     if (conversions.length === 0 && currencyParsed.length === 0) return;
