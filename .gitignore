@@ -13,3 +13,12 @@ desktop.ini
 web-ext-artifacts/
 *.zip
 *.xpi
+
+# Node / web-ext tooling
+node_modules/
+package.json
+package-lock.json
+
+# web-ext runtime files
+.amo-upload-uuid
+web-ext-commands.txt
