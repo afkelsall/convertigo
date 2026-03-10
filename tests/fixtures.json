@@ -198,5 +198,56 @@
   {
     "input": "Measures 13 x 72 inches, suitable",
     "expected": ["13 inches → 33.02 cm", "72 inches → 182.88 cm"]
-  }
+  },
+  {
+    "input": "Water boils at 100°C",
+    "expected": ["100°C → 212 °F", "100°C → 373.15 K"]
+  },
+  {
+    "input": "Room temperature is 72°F",
+    "expected": ["72°F → 22.22 °C", "72°F → 295.37 K"]
+  },
+  {
+    "input": "Boil at 100 celsius",
+    "expected": ["100 celsius → 212 °F", "100 celsius → 373.15 K"]
+  },
+  {
+    "input": "Body temp is 98.6 fahrenheit",
+    "expected": ["98.6 fahrenheit → 37 °C", "98.6 fahrenheit → 310.15 K"]
+  },
+  {
+    "input": "Space is 300 kelvin",
+    "expected": ["300 kelvin → 26.85 °C", "300 kelvin → 80.33 °F"]
+  },
+  {
+    "input": "Freezing is 32°f",
+    "expected": ["32°f → 0 °C", "32°f → 273.15 K"]
+  },
+  {
+    "input": "Speed limit is 100 kph",
+    "expected": ["100 kph → 62.14 mph"]
+  },
+  {
+    "input": "Driving at 60 mph",
+    "expected": ["60 mph → 96.56 km/h"]
+  },
+  {
+    "input": "Top speed: 200km/h",
+    "expected": ["200km/h → 124.27 mph"]
+  },
+  {
+    "input": "Traveling at 10 m/s",
+    "expected": ["10 m/s → 36 km/h"]
+  },
+  {
+    "input": "Bullet at 900 mps",
+    "expected": ["900 mps → 3240 km/h"]
+  },
+  {
+    "input": "Wind at 15 knots",
+    "expected": ["15 knots → 27.78 km/h"]
+  },
+  { "input": "Gets 30 mpg", "expected": ["30 mpg → 12.75 km/L", "30 mpg → 7.84 L/100km"] },
+  { "input": "Uses 8 L/100km", "expected": ["8 L/100km → 29.4 MPG", "8 L/100km → 12.5 km/L"] },
+  { "input": "Economy is 12 km/L", "expected": ["12 km/L → 28.23 MPG", "12 km/L → 8.33 L/100km"] }
 ]
