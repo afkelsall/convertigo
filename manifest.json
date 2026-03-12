@@ -1,15 +1,24 @@
 {
   "manifest_version": 2,
   "name": "Convertigo",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Detects measurement units and currencies in selected text and shows conversions in a popup.",
   "icons": {
     "48": "icons/icon-48.png",
     "96": "icons/icon-96.png"
   },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{35b94d47-b594-41a7-8b94-7a8353587685}",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  },
   "permissions": ["storage"],
   "browser_action": {
-    "default_title": "Convertigo"
+    "default_title": "Convertigo",
+    "default_popup": "options/options.html"
   },
   "background": {
     "scripts": ["background/background.js"]
@@ -18,6 +27,7 @@
     {
       "matches": ["<all_urls>"],
       "js": [
+        "lib/settings.js",
         "lib/parser.js",
         "lib/converter.js",
         "lib/currency-parser.js",

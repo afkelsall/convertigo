@@ -48,6 +48,13 @@
   background: rgba(168, 230, 207, 0.06) !important;
 }
 
+/* Alt-replace mode: show converted value with squiggly underline */
+.uc-alt-replaced {
+  text-decoration: underline wavy rgba(168, 230, 207, 0.75) !important;
+  text-decoration-skip-ink: none !important;
+  border-bottom: none !important;
+}
+
 #unit-converter-popup .uc-label {
   font-size: 10px !important;
   font-weight: 600 !important;

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Convertigo Settings</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 300px;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      line-height: 1.4;
+      padding: 14px;
+    }
+
+    h1 {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #a8e6cf;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .section {
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .section:last-of-type {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    label.section-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #7a7a9a;
+      margin-bottom: 7px;
+    }
+
+    select {
+      width: 100%;
+      background: #12122a;
+      color: #e0e0e0;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 5px;
+      padding: 5px 8px;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237a7a9a'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      padding-right: 24px;
+    }
+
+    select:focus {
+      border-color: rgba(168,230,207,0.4);
+    }
+
+    .radio-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .radio-group label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.1);
+      font-size: 12px;
+      color: #9898b8;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+
+    .radio-group input[type="radio"] {
+      display: none;
+    }
+
+    .radio-group input[type="radio"]:checked + span {
+      color: #a8e6cf;
+    }
+
+    .radio-group label:has(input:checked) {
+      border-color: rgba(168,230,207,0.5);
+      background: rgba(168,230,207,0.07);
+      color: #a8e6cf;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+
+    .checkbox-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      accent-color: #a8e6cf;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .checkbox-row span {
+      font-size: 12px;
+      color: #9898b8;
+    }
+
+    .checkbox-row input:checked ~ span {
+      color: #e0e0e0;
+    }
+
+    #saved-indicator {
+      text-align: center;
+      font-size: 11px;
+      color: #a8e6cf;
+      margin-top: 12px;
+      height: 16px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    #saved-indicator.visible {
+      opacity: 1;
+    }
+
+    #reset-btn {
+      display: block;
+      width: 100%;
+      margin-top: 8px;
+      padding: 6px 0;
+      background: none;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 5px;
+      color: #7a7a9a;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    #reset-btn:hover {
+      color: #e0e0e0;
+      border-color: rgba(255,255,255,0.25);
+    }
+  </style>
+</head>
+<body>
+  <h1>Convertigo</h1>
+
+  <div class="section">
+    <label class="section-label" for="currency">Convert currencies to</label>
+    <select id="currency"></select>
+  </div>
+
+  <div class="section">
+    <label class="section-label">Unit system</label>
+    <div class="radio-group" id="unit-system">
+      <label><input type="radio" name="unitSystem" value="both"><span>Both</span></label>
+      <label><input type="radio" name="unitSystem" value="metric"><span>Metric</span></label>
+      <label><input type="radio" name="unitSystem" value="imperial"><span>Imperial</span></label>
+    </div>
+  </div>
+
+  <div class="section">
+    <label class="section-label">Temperature</label>
+    <div class="radio-group" id="temperature">
+      <label><input type="radio" name="temperaturePref" value="both"><span>Both</span></label>
+      <label><input type="radio" name="temperaturePref" value="°c"><span>Celsius</span></label>
+      <label><input type="radio" name="temperaturePref" value="°f"><span>Fahrenheit</span></label>
+    </div>
+  </div>
+
+  <div class="section">
+    <label class="section-label">Fuel efficiency</label>
+    <div class="radio-group" id="fuel">
+      <label><input type="radio" name="fuelPref" value="all"><span>All</span></label>
+      <label><input type="radio" name="fuelPref" value="mpg"><span>MPG</span></label>
+      <label><input type="radio" name="fuelPref" value="l100km"><span>L/100km</span></label>
+      <label><input type="radio" name="fuelPref" value="kml"><span>km/L</span></label>
+    </div>
+  </div>
+
+  <div class="section">
+    <label class="section-label">Features</label>
+    <label class="checkbox-row">
+      <input type="checkbox" id="hover-enabled">
+      <span>Show popup when hovering over detected values</span>
+    </label>
+    <label class="checkbox-row">
+      <input type="checkbox" id="page-scan-enabled">
+      <span>Highlight detected values on page load</span>
+    </label>
+  </div>
+
+  <div class="section">
+    <label class="section-label" for="replace-key">Hold to show converted values</label>
+    <select id="replace-key">
+      <option value="Alt">Alt</option>
+      <option value="Control">Ctrl</option>
+      <option value="Shift">Shift</option>
+    </select>
+  </div>
+
+  <div id="saved-indicator">✓ Saved</div>
+
+  <button id="reset-btn">Reset to defaults</button>
+
+  <script src="../lib/settings.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

@@ -8,6 +8,17 @@
   let scanIdleId = null;
   let hoverTarget = null;
   let mutationDebounce = null;
+  let isReplaceActive = false;
+  let replacedSpans = [];
+
+  // Settings — initialized to defaults, loaded async on startup
+  let settings = Object.assign({}, window.ConvertigoSettings.DEFAULTS);
+
+  function getCurrencyParseOptions() {
+    const hostname = window.location.hostname;
+    const dollarCurrency = hostname.endsWith('.au') ? 'AUD' : 'USD';
+    return { dollarCurrency, targetCurrency: settings.targetCurrency };
+  }
 
   function removePopup() {
     const existing = document.getElementById(POPUP_ID);
@@ -249,15 +260,15 @@
     const conversions = parsed.flatMap((p) => {
       if (p.isDimension) {
         return p.values.map((v, i) => {
-          const convResult = window.UnitConverter.convert(v, p.unit);
+          const convResult = window.UnitConverter.convert(v, p.unit, settings);
           const dimOriginal = (p.rawValues ? p.rawValues[i] : v) + ' ' + (p.unitText || p.unit);
           return convResult ? { ...p, value: v, original: dimOriginal, convResult } : null;
         }).filter(Boolean);
       }
       let convResult;
       if (p.isRange) {
-        const r1 = window.UnitConverter.convert(p.value, p.unit);
-        const r2 = window.UnitConverter.convert(p.value2, p.unit);
+        const r1 = window.UnitConverter.convert(p.value, p.unit, settings);
+        const r2 = window.UnitConverter.convert(p.value2, p.unit, settings);
         if (r1 && r2) {
           convResult = r1.map((c1, i) => {
             const c2 = r2[i];
@@ -267,15 +278,12 @@
           });
         }
       } else {
-        convResult = window.UnitConverter.convert(p.value, p.unit);
+        convResult = window.UnitConverter.convert(p.value, p.unit, settings);
       }
       return convResult ? [{ ...p, convResult }] : [];
     });
 
-    // On .au sites, bare '$' is already AUD — skip conversion for those
-    const hostname = window.location.hostname;
-    const dollarCurrency = hostname.endsWith('.au') ? 'AUD' : 'USD';
-    const currencyParsed = window.CurrencyParser.parse(text, { dollarCurrency });
+    const currencyParsed = window.CurrencyParser.parse(text, getCurrencyParseOptions());
 
     if (conversions.length === 0 && currencyParsed.length === 0) {
       removePopup();
@@ -311,6 +319,7 @@
         if (window.CurrencyConverter.hasError()) {
           currencyError = true;
         } else {
+          window.CurrencyConverter.setTargetCurrency(settings.targetCurrency);
           currencyConversions = currencyParsed.map((p) => ({
             ...p,
             convResult: window.CurrencyConverter.convert(p.value, p.currency, p.multiplier)
@@ -386,9 +395,8 @@
     const parent = textNode.parentElement;
     if (!parent) return;
 
-    const dollarCurrency = window.location.hostname.endsWith('.au') ? 'AUD' : 'USD';
     const unitMatches = window.UnitParser.parse(text).map(m => ({ ...m, isCurrency: false }));
-    const currencyMatches = window.CurrencyParser.parse(text, { dollarCurrency }).map(m => ({ ...m, isCurrency: true }));
+    const currencyMatches = window.CurrencyParser.parse(text, getCurrencyParseOptions()).map(m => ({ ...m, isCurrency: true }));
 
     // Merge, sort by index, deduplicate overlaps
     const allMatches = [...unitMatches, ...currencyMatches].sort((a, b) => a.index - b.index);
@@ -417,6 +425,7 @@
       span.dataset.ucIsCurrency = m.isCurrency ? '1' : '0';
       span.textContent = text.slice(m.index, m.index + m.matchLength);
       fragment.appendChild(span);
+      replaceSpanIfActive(span);
       cursor = m.index + m.matchLength;
     }
     if (cursor < text.length) {
@@ -471,20 +480,19 @@
     const original = span.dataset.ucOriginal;
     if (!original) return;
 
-    const dollarCurrency = window.location.hostname.endsWith('.au') ? 'AUD' : 'USD';
     const parsed = window.UnitParser.parse(original);
     const conversions = parsed.flatMap(p => {
       if (p.isDimension) {
         return p.values.map((v, i) => {
-          const convResult = window.UnitConverter.convert(v, p.unit);
+          const convResult = window.UnitConverter.convert(v, p.unit, settings);
           const dimOriginal = (p.rawValues ? p.rawValues[i] : v) + ' ' + (p.unitText || p.unit);
           return convResult ? { ...p, value: v, original: dimOriginal, convResult } : null;
         }).filter(Boolean);
       }
-      const convResult = window.UnitConverter.convert(p.value, p.unit);
+      const convResult = window.UnitConverter.convert(p.value, p.unit, settings);
       return convResult ? [{ ...p, convResult }] : [];
     });
-    const currencyParsed = window.CurrencyParser.parse(original, { dollarCurrency });
+    const currencyParsed = window.CurrencyParser.parse(original, getCurrencyParseOptions());
 
     if (conversions.length === 0 && currencyParsed.length === 0) return;
 
@@ -511,6 +519,7 @@
         if (window.CurrencyConverter.hasError()) {
           currencyError = true;
         } else {
+          window.CurrencyConverter.setTargetCurrency(settings.targetCurrency);
           currencyConversions = currencyParsed.map(p => ({
             ...p,
             convResult: window.CurrencyConverter.convert(p.value, p.currency, p.multiplier)
@@ -530,6 +539,7 @@
   }
 
   function onHighlightMouseover(e) {
+    if (!settings.hoverEnabled) return;
     const span = e.target.closest && e.target.closest('.uc-highlight');
     if (!span) return;
     // If a selection popup is open, don't show hover popup
@@ -572,24 +582,174 @@
     }
   });
 
+  // ── Hold-key page-wide replacement ────────────────────────────────────────
+
+  function getUnitReplacementText(original) {
+    const parsed = window.UnitParser.parse(original);
+    if (!parsed.length) return null;
+    const p = parsed[0];
+
+    if (p.isDimension) {
+      const parts = p.values.map(v => window.UnitConverter.convert(v, p.unit, settings));
+      if (!parts[0]) return null;
+      const unit = parts[0][0].formatted.split(' ').slice(1).join(' ');
+      const nums = parts.map(r => r ? r[0].formatted.split(' ')[0] : '?');
+      return nums.join(' x ') + ' ' + unit;
+    }
+
+    if (p.isRange) {
+      const r1 = window.UnitConverter.convert(p.value, p.unit, settings);
+      const r2 = window.UnitConverter.convert(p.value2, p.unit, settings);
+      if (!r1 || !r2) return null;
+      const c1 = r1[0], c2 = r2[0];
+      const sp = c1.formatted.lastIndexOf(' ');
+      const num2 = c2.formatted.slice(0, c2.formatted.lastIndexOf(' '));
+      return c1.formatted.slice(0, sp) + '-' + num2 + c1.formatted.slice(sp);
+    }
+
+    const convResult = window.UnitConverter.convert(p.value, p.unit, settings);
+    return convResult ? convResult[0].formatted : null;
+  }
+
+  function replaceHighlightSpan(span) {
+    const original = span.dataset.ucOriginal;
+    if (!original) return;
+    let replacement = null;
+
+    if (span.dataset.ucIsCurrency === '1') {
+      if (window.CurrencyConverter.isReady() && !window.CurrencyConverter.hasError()) {
+        window.CurrencyConverter.setTargetCurrency(settings.targetCurrency);
+        const cp = window.CurrencyParser.parse(original, getCurrencyParseOptions());
+        if (cp.length) {
+          const convResult = window.CurrencyConverter.convert(cp[0].value, cp[0].currency, cp[0].multiplier);
+          if (convResult) replacement = convResult[0].formatted;
+        }
+      }
+    } else {
+      replacement = getUnitReplacementText(original);
+    }
+
+    if (!replacement) return;
+    span.textContent = replacement;
+    span.classList.add('uc-alt-replaced');
+    replacedSpans.push(span);
+  }
+
+  function activateReplace() {
+    if (isReplaceActive) return;
+    isReplaceActive = true;
+
+    // Replace unit spans immediately
+    document.querySelectorAll('.uc-highlight').forEach(replaceHighlightSpan);
+
+    // If currency spans weren't replaced (rates not loaded), load and retry
+    const unreplacedCurrency = document.querySelectorAll('.uc-highlight[data-uc-is-currency="1"]:not(.uc-alt-replaced)');
+    if (unreplacedCurrency.length > 0 && !window.CurrencyConverter.isReady()) {
+      window.CurrencyConverter.init().then(() => {
+        if (!isReplaceActive) return;
+        unreplacedCurrency.forEach(replaceHighlightSpan);
+      }).catch(() => {});
+    }
+  }
+
+  function replaceSpanIfActive(span) {
+    if (!isReplaceActive) return;
+    replaceHighlightSpan(span);
+  }
+
+  function deactivateReplace() {
+    if (!isReplaceActive) return;
+    isReplaceActive = false;
+    replacedSpans.forEach(span => {
+      if (span.dataset.ucOriginal) span.textContent = span.dataset.ucOriginal;
+      span.classList.remove('uc-alt-replaced');
+    });
+    replacedSpans = [];
+  }
+
+  function isReplaceKeyHeld(e) {
+    return (settings.replaceKey === 'Alt' && e.altKey) ||
+           (settings.replaceKey === 'Control' && e.ctrlKey) ||
+           (settings.replaceKey === 'Shift' && e.shiftKey);
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === settings.replaceKey) activateReplace();
+  });
+
+  document.addEventListener('keyup', (e) => {
+    if (e.key === settings.replaceKey) deactivateReplace();
+  });
+
+  // Detect modifier held across page loads (keydown auto-repeat may not fire)
+  document.addEventListener('mousemove', (e) => {
+    const held = isReplaceKeyHeld(e);
+    if (held && !isReplaceActive) activateReplace();
+    else if (!held && isReplaceActive) deactivateReplace();
+  });
+
+  window.addEventListener('blur', deactivateReplace);
+
   // ── Page-scan startup ──────────────────────────────────────────────────────
+
+  // Pre-fetch currency rates so they're ready for hold-key replace and hover
+  window.CurrencyConverter.init().catch(() => {});
 
   // Hover event delegation (one listener each, not per-span)
   document.body.addEventListener('mouseover', onHighlightMouseover);
   document.body.addEventListener('mouseout', onHighlightMouseout);
 
-  // Initial full-page scan
-  enqueueSubtree(document.body);
+  let ucObserver = null;
 
-  // Watch for dynamically added content (infinite scroll, SPAs)
-  const ucObserver = new MutationObserver((mutations) => {
-    clearTimeout(mutationDebounce);
-    mutationDebounce = setTimeout(() => {
-      for (const m of mutations)
-        for (const node of m.addedNodes)
-          if (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('uc-highlight'))
-            enqueueSubtree(node);
-    }, 200);
+  function startPageScan() {
+    enqueueSubtree(document.body);
+    if (!ucObserver) {
+      ucObserver = new MutationObserver((mutations) => {
+        clearTimeout(mutationDebounce);
+        mutationDebounce = setTimeout(() => {
+          for (const m of mutations)
+            for (const node of m.addedNodes)
+              if (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('uc-highlight'))
+                enqueueSubtree(node);
+        }, 200);
+      });
+      ucObserver.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  function stopPageScan() {
+    if (ucObserver) {
+      ucObserver.disconnect();
+      ucObserver = null;
+    }
+    if (scanIdleId) {
+      cancelIdleCallback(scanIdleId);
+      scanIdleId = null;
+    }
+    scanQueue.length = 0;
+  }
+
+  // Start page scan immediately with defaults — don't block on async storage read
+  startPageScan();
+
+  // Load persisted settings and apply them; stop scan if user disabled it
+  window.ConvertigoSettings.load().then(loaded => {
+    settings = loaded;
+    if (!settings.pageScanEnabled) stopPageScan();
   });
-  ucObserver.observe(document.body, { childList: true, subtree: true });
+
+  // React to settings changes without page reload
+  window.ConvertigoSettings.onChange(newSettings => {
+    const wasPageScan = settings.pageScanEnabled;
+    settings = newSettings;
+
+    if (settings.pageScanEnabled && !wasPageScan) {
+      startPageScan();
+    } else if (!settings.pageScanEnabled && wasPageScan) {
+      stopPageScan();
+    }
+
+    // Deactivate replace if the key changed while active
+    if (isReplaceActive) deactivateReplace();
+  });
 })();
