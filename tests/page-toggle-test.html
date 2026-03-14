@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Convertigo — Full-Page Toggle Test</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #111118;
+      color: #d0d0e8;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    /* ── sticky status bar ── */
+    #status-bar {
+      position: sticky;
+      top: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      background: #1a1a2e;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 10px 20px;
+      font-size: 13px;
+      color: #7a7a9a;
+    }
+    #status-bar .hint { flex: 1; }
+    #status-bar .key-badge {
+      background: rgba(168,230,207,0.12);
+      border: 1px solid rgba(168,230,207,0.3);
+      border-radius: 5px;
+      padding: 1px 8px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #a8e6cf;
+    }
+    #status-bar .state {
+      font-weight: 600;
+      color: #7a7a9a;
+      transition: color 0.15s;
+    }
+    #status-bar.active .state { color: #a8e6cf; }
+    #status-bar .counts { font-size: 12px; }
+
+    /* ── layout ── */
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      min-height: calc(100vh - 45px);
+    }
+
+    .section {
+      padding: 24px 28px 40px;
+    }
+    .section:first-child {
+      border-right: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #4a4a6a;
+      margin: 0 0 20px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* ── fixture lines ── */
+    .fixture-line {
+      position: relative;
+      margin: 0;
+      padding: 4px 0 4px 52px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-size: 14px;
+      min-height: 28px;
+    }
+    .fixture-line::before {
+      content: attr(data-fixture-label);
+      position: absolute;
+      left: 0;
+      top: 4px;
+      font-size: 10px;
+      font-family: monospace;
+      color: #333355;
+      width: 44px;
+      text-align: right;
+      padding-right: 8px;
+    }
+    .fixture-line:last-child { border-bottom: none; }
+
+    /* ── highlight spans (mirror content.css) ── */
+    .uc-highlight {
+      border-bottom: 1px dotted rgba(168, 230, 207, 0.45);
+      cursor: help;
+    }
+    .uc-highlight:hover {
+      border-bottom-color: rgba(168, 230, 207, 0.85);
+      background: rgba(168, 230, 207, 0.06);
+    }
+    .uc-highlight[data-uc-is-currency="1"] {
+      border-bottom-color: rgba(168, 216, 234, 0.45);
+    }
+    .uc-highlight[data-uc-is-currency="1"]:hover {
+      border-bottom-color: rgba(168, 216, 234, 0.85);
+      background: rgba(168, 216, 234, 0.06);
+    }
+
+    .uc-alt-replaced {
+      text-decoration: underline wavy rgba(168, 230, 207, 0.75);
+      text-decoration-skip-ink: none;
+      border-bottom: none;
+    }
+    .uc-alt-replaced[data-uc-is-currency="1"] {
+      text-decoration-color: rgba(168, 216, 234, 0.75);
+    }
+  </style>
+</head>
+<body>
+
+<div id="status-bar">
+  <span class="hint">Hold <span class="key-badge">Alt</span> to toggle all conversions — release to restore</span>
+  <span class="counts" id="span-counts"></span>
+  <span class="state" id="replace-state">Original</span>
+</div>
+
+<div class="container">
+  <section class="section">
+    <h2 class="section-title">Unit fixtures (65)</h2>
+    <p class="fixture-line" data-fixture-label="U001">The board is 12 inches wide</p>
+    <p class="fixture-line" data-fixture-label="U002">The board is 2-3 inches wide</p>
+    <p class="fixture-line" data-fixture-label="U003">Cut it to 2-3in</p>
+    <p class="fixture-line" data-fixture-label="U004">He is 5.5 ft tall</p>
+    <p class="fixture-line" data-fixture-label="U005">Cut it to 3/4 in</p>
+    <p class="fixture-line" data-fixture-label="U006">Gap is 1 1/2 inches</p>
+    <p class="fixture-line" data-fixture-label="U007">The pipe is 6" long</p>
+    <p class="fixture-line" data-fixture-label="U008">Bolt is 2″ diameter</p>
+    <p class="fixture-line" data-fixture-label="U009">The trail is 3.1 miles long</p>
+    <p class="fixture-line" data-fixture-label="U010">A 5km race</p>
+    <p class="fixture-line" data-fixture-label="U011">Package weighs 10 lbs</p>
+    <p class="fixture-line" data-fixture-label="U012">Add 0.2 kg of flour</p>
+    <p class="fixture-line" data-fixture-label="U013">Contains 500g of sugar</p>
+    <p class="fixture-line" data-fixture-label="U014">Use 4 oz of butter</p>
+    <p class="fixture-line" data-fixture-label="U015">Thickness: 2mm</p>
+    <p class="fixture-line" data-fixture-label="U016">Screen is 40 cm wide</p>
+    <p class="fixture-line" data-fixture-label="U017">Room is 3 m long</p>
+    <p class="fixture-line" data-fixture-label="U018">50 yard dash</p>
+    <p class="fixture-line" data-fixture-label="U019">The truck carries 2 tons</p>
+    <p class="fixture-line" data-fixture-label="U020">The box is 12 inches by 5 inches and weighs 3 lbs</p>
+    <p class="fixture-line" data-fixture-label="U021">Length: 2,5 m</p>
+    <p class="fixture-line" data-fixture-label="U022">The shelf is 1 ft wide</p>
+    <p class="fixture-line" data-fixture-label="U023">Dose is 500 mg</p>
+    <p class="fixture-line" data-fixture-label="U024">1 1/2 pounds green cabbage</p>
+    <p class="fixture-line" data-fixture-label="U025">12.35 pounds</p>
+    <p class="fixture-line" data-fixture-label="U026">12.2"D x 13.39"W x 12.99"H</p>
+    <p class="fixture-line" data-fixture-label="U027">6 Quarts</p>
+    <p class="fixture-line" data-fixture-label="U028">1 cup of water</p>
+    <p class="fixture-line" data-fixture-label="U029">2 tablespoons butter</p>
+    <p class="fixture-line" data-fixture-label="U030">1 teaspoon vanilla</p>
+    <p class="fixture-line" data-fixture-label="U031">2 gallons</p>
+    <p class="fixture-line" data-fixture-label="U032">500 ml</p>
+    <p class="fixture-line" data-fixture-label="U033">100 ml</p>
+    <p class="fixture-line" data-fixture-label="U034">5 ml</p>
+    <p class="fixture-line" data-fixture-label="U035">1 pint</p>
+    <p class="fixture-line" data-fixture-label="U036">1 liter</p>
+    <p class="fixture-line" data-fixture-label="U037">0.5 L</p>
+    <p class="fixture-line" data-fixture-label="U038">1 barrel of oil</p>
+    <p class="fixture-line" data-fixture-label="U039">$5.2M</p>
+    <p class="fixture-line" data-fixture-label="U040">$100 and 5 m of rope</p>
+    <p class="fixture-line" data-fixture-label="U041">He is 5'10" tall</p>
+    <p class="fixture-line" data-fixture-label="U042">Height: 5'6</p>
+    <p class="fixture-line" data-fixture-label="U043">Between 5'6-5'9"</p>
+    <p class="fixture-line" data-fixture-label="U044">About 5'10/5'11</p>
+    <p class="fixture-line" data-fixture-label="U045">Range is 5'10"-5'11"</p>
+    <p class="fixture-line" data-fixture-label="U046">13 x 72 inches</p>
+    <p class="fixture-line" data-fixture-label="U047">Rug is 8x10 ft</p>
+    <p class="fixture-line" data-fixture-label="U048">Box is 12 x 8 x 5 inches</p>
+    <p class="fixture-line" data-fixture-label="U049">Panel 100 × 200 cm</p>
+    <p class="fixture-line" data-fixture-label="U050">Measures 13 x 72 inches, suitable</p>
+    <p class="fixture-line" data-fixture-label="U051">Water boils at 100°C</p>
+    <p class="fixture-line" data-fixture-label="U052">Room temperature is 72°F</p>
+    <p class="fixture-line" data-fixture-label="U053">Boil at 100 celsius</p>
+    <p class="fixture-line" data-fixture-label="U054">Body temp is 98.6 fahrenheit</p>
+    <p class="fixture-line" data-fixture-label="U055">Space is 300 kelvin</p>
+    <p class="fixture-line" data-fixture-label="U056">Freezing is 32°f</p>
+    <p class="fixture-line" data-fixture-label="U057">Speed limit is 100 kph</p>
+    <p class="fixture-line" data-fixture-label="U058">Driving at 60 mph</p>
+    <p class="fixture-line" data-fixture-label="U059">Top speed: 200km/h</p>
+    <p class="fixture-line" data-fixture-label="U060">Traveling at 10 m/s</p>
+    <p class="fixture-line" data-fixture-label="U061">Bullet at 900 mps</p>
+    <p class="fixture-line" data-fixture-label="U062">Wind at 15 knots</p>
+    <p class="fixture-line" data-fixture-label="U063">Gets 30 mpg</p>
+    <p class="fixture-line" data-fixture-label="U064">Uses 8 L/100km</p>
+    <p class="fixture-line" data-fixture-label="U065">Economy is 12 km/L</p>
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">Currency fixtures (32) — target: AUD</h2>
+    <p class="fixture-line" data-fixture-label="C001">$100</p>
+    <p class="fixture-line" data-fixture-label="C002">$99.99</p>
+    <p class="fixture-line" data-fixture-label="C003">€50</p>
+    <p class="fixture-line" data-fixture-label="C004">£25.50</p>
+    <p class="fixture-line" data-fixture-label="C005">¥1000</p>
+    <p class="fixture-line" data-fixture-label="C006">US$2</p>
+    <p class="fixture-line" data-fixture-label="C007">C$300</p>
+    <p class="fixture-line" data-fixture-label="C008">Can$300</p>
+    <p class="fixture-line" data-fixture-label="C009">USD 52</p>
+    <p class="fixture-line" data-fixture-label="C010">EUR 40</p>
+    <p class="fixture-line" data-fixture-label="C011">SF 65.50</p>
+    <p class="fixture-line" data-fixture-label="C012">$95,000</p>
+    <p class="fixture-line" data-fixture-label="C013">1,500 USD</p>
+    <p class="fixture-line" data-fixture-label="C014">$7.3 billion</p>
+    <p class="fixture-line" data-fixture-label="C015">$350K</p>
+    <p class="fixture-line" data-fixture-label="C016">$5 million</p>
+    <p class="fixture-line" data-fixture-label="C017">€1.5M</p>
+    <p class="fixture-line" data-fixture-label="C018">$5.2M</p>
+    <p class="fixture-line" data-fixture-label="C019">100 USD</p>
+    <p class="fixture-line" data-fixture-label="C020">50.00 EUR</p>
+    <p class="fixture-line" data-fixture-label="C021">The item costs $29.99 plus £5 shipping</p>
+    <p class="fixture-line" data-fixture-label="C022">Price: 200 CAD</p>
+    <p class="fixture-line" data-fixture-label="C023">AUD 500</p>
+    <p class="fixture-line" data-fixture-label="C024">500 AUD</p>
+    <p class="fixture-line" data-fixture-label="C025">$10AUD</p>
+    <p class="fixture-line" data-fixture-label="C026">$10USD</p>
+    <p class="fixture-line" data-fixture-label="C027">$10 AUD</p>
+    <p class="fixture-line" data-fixture-label="C028">$50CAD</p>
+    <p class="fixture-line" data-fixture-label="C029">$99.50NZD</p>
+    <p class="fixture-line" data-fixture-label="C030">$ sign only</p>
+    <p class="fixture-line" data-fixture-label="C031" data-dollar-currency="AUD">$89</p>
+    <p class="fixture-line" data-fixture-label="C032" data-dollar-currency="AUD">$89 product on an AU site, also 10 USD</p>
+  </section>
+</div>
+
+<!-- shim browser APIs before lib scripts load -->
+<script>
+window.browser = {
+  runtime: { sendMessage: () => Promise.reject(new Error('standalone')) },
+  storage: {
+    local: { get: () => Promise.resolve({}) },
+    onChanged: { addListener: () => {} }
+  }
+};
+</script>
+
+<script src="../lib/settings.js"></script>
+<script src="../lib/parser.js"></script>
+<script src="../lib/converter.js"></script>
+<script src="../lib/currency-parser.js"></script>
+<script src="../lib/currency-converter.js"></script>
+
+<script>
+(function () {
+  // ── Mock rates (base = AUD; 1 AUD = X foreign) ──
+  const MOCK_RATES = {
+    USD: 0.625, EUR: 0.58,  GBP: 0.5,   JPY: 95.0,
+    CAD: 0.87,  NZD: 1.08,  HKD: 4.88,  SGD: 0.84,
+    CHF: 0.55,  CNY: 4.55,  INR: 52.5,  KRW: 850,
+    BGN: 1.13,  BRL: 3.15,  CZK: 14.6,  DKK: 4.33,
+    HUF: 230,   IDR: 9800,  ILS: 2.25,  ISK: 86,
+    MXN: 10.8,  MYR: 2.95,  NOK: 6.72,  PHP: 35.5,
+    PLN: 2.52,  RON: 2.88,  SEK: 6.55,  THB: 22.1,
+    TRY: 20.2,  ZAR: 11.8
+  };
+  window.CurrencyConverter._setRates(MOCK_RATES, '2026-03-12');
+  window.CurrencyConverter.setTargetCurrency('AUD');
+
+  const settings = Object.assign({}, window.ConvertigoSettings.DEFAULTS, { targetCurrency: 'AUD' });
+
+  // ── processTextNode (mirrors content.js) ──
+  function processTextNode(textNode, currencyParseOpts) {
+    const text   = textNode.nodeValue;
+    const parent = textNode.parentElement;
+    if (!parent) return;
+
+    const unitMatches     = window.UnitParser.parse(text).map(m => ({ ...m, isCurrency: false }));
+    const currencyMatches = window.CurrencyParser.parse(text, currencyParseOpts).map(m => ({ ...m, isCurrency: true }));
+    const allMatches      = [...unitMatches, ...currencyMatches].sort((a, b) => a.index - b.index);
+
+    const deduped = [];
+    let lastEnd = -1;
+    for (const m of allMatches) {
+      if (m.index >= lastEnd) { deduped.push(m); lastEnd = m.index + m.matchLength; }
+    }
+    if (!deduped.length) return;
+
+    const frag = document.createDocumentFragment();
+    let cursor = 0;
+    for (const m of deduped) {
+      if (m.index > cursor) frag.appendChild(document.createTextNode(text.slice(cursor, m.index)));
+      const span = document.createElement('span');
+      span.className = 'uc-highlight';
+      span.dataset.ucOriginal   = text.slice(m.index, m.index + m.matchLength);
+      span.dataset.ucIsCurrency = m.isCurrency ? '1' : '0';
+      span.textContent = span.dataset.ucOriginal;
+      frag.appendChild(span);
+      cursor = m.index + m.matchLength;
+    }
+    if (cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
+    parent.replaceChild(frag, textNode);
+  }
+
+  // ── getUnitReplacementText (mirrors content.js) ──
+  function getUnitReplacementText(original) {
+    const parsed = window.UnitParser.parse(original);
+    if (!parsed.length) return null;
+    const p = parsed[0];
+
+    if (p.isDimension) {
+      const parts = p.values.map(v => window.UnitConverter.convert(v, p.unit, settings));
+      if (!parts[0]) return null;
+      const unit = parts[0][0].formatted.split(' ').slice(1).join(' ');
+      const nums = parts.map(r => r ? r[0].formatted.split(' ')[0] : '?');
+      return nums.join(' x ') + ' ' + unit;
+    }
+    if (p.isRange) {
+      const r1 = window.UnitConverter.convert(p.value,  p.unit, settings);
+      const r2 = window.UnitConverter.convert(p.value2, p.unit, settings);
+      if (!r1 || !r2) return null;
+      const c1 = r1[0], c2 = r2[0];
+      const sp = c1.formatted.lastIndexOf(' ');
+      return c1.formatted.slice(0, sp) + '-' + c2.formatted.slice(0, c2.formatted.lastIndexOf(' ')) + c1.formatted.slice(sp);
+    }
+    const res = window.UnitConverter.convert(p.value, p.unit, settings);
+    return res ? res[0].formatted : null;
+  }
+
+  // ── replaceHighlightSpan / deactivate (mirrors content.js) ──
+  let replacedSpans = [];
+  let isActive = false;
+
+  function replaceHighlightSpan(span) {
+    const original = span.dataset.ucOriginal;
+    if (!original) return;
+    let replacement = null;
+
+    if (span.dataset.ucIsCurrency === '1') {
+      const p = span.closest('[data-dollar-currency]');
+      const dollarCurrency = (p && p.dataset.dollarCurrency) || 'USD';
+      const cp = window.CurrencyParser.parse(original, { dollarCurrency, targetCurrency: 'AUD' });
+      if (cp.length) {
+        const res = window.CurrencyConverter.convert(cp[0].value, cp[0].currency, cp[0].multiplier);
+        if (res) replacement = res[0].formatted;
+      }
+    } else {
+      replacement = getUnitReplacementText(original);
+    }
+
+    if (!replacement) return;
+    span.textContent = replacement;
+    span.classList.add('uc-alt-replaced');
+    replacedSpans.push(span);
+  }
+
+  function activateReplace() {
+    if (isActive) return;
+    isActive = true;
+    document.querySelectorAll('.uc-highlight').forEach(replaceHighlightSpan);
+    document.getElementById('status-bar').classList.add('active');
+    document.getElementById('replace-state').textContent = 'Converted';
+  }
+
+  function deactivateReplace() {
+    if (!isActive) return;
+    isActive = false;
+    replacedSpans.forEach(span => {
+      if (span.dataset.ucOriginal) span.textContent = span.dataset.ucOriginal;
+      span.classList.remove('uc-alt-replaced');
+    });
+    replacedSpans = [];
+    document.getElementById('status-bar').classList.remove('active');
+    document.getElementById('replace-state').textContent = 'Original';
+  }
+
+  // ── Page scan ──
+  function scanParagraph(p) {
+    const dollarCurrency = p.dataset.dollarCurrency || 'USD';
+    const opts = { dollarCurrency, targetCurrency: 'AUD' };
+    const nodes = [];
+    const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = walker.nextNode())) { if (n.nodeValue.trim()) nodes.push(n); }
+    nodes.forEach(n => processTextNode(n, opts));
+  }
+
+  document.querySelectorAll('.fixture-line').forEach(scanParagraph);
+
+  // Update span count in status bar
+  const spanCount = document.querySelectorAll('.uc-highlight').length;
+  document.getElementById('span-counts').textContent = spanCount + ' detections';
+
+  // ── Key listeners ──
+  document.addEventListener('keydown', e => { if (e.key === 'Alt') { e.preventDefault(); activateReplace(); } });
+  document.addEventListener('keyup',   e => { if (e.key === 'Alt') deactivateReplace(); });
+  window.addEventListener('blur', deactivateReplace);
+  document.addEventListener('mousemove', e => {
+    if (e.altKey && !isActive) activateReplace();
+    else if (!e.altKey && isActive) deactivateReplace();
+  });
+})();
+</script>
+</body>
+</html>

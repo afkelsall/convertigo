@@ -1,10 +1,1 @@
-Configuration screen
- - Choose currency
- - Choose default units (metric/imperial)
- - Toggle hover functionality
-
-Add temperature conversions
-
-Add fuel efficiency conversions
-
-Add ability to replace whole page of detectable elements based on a toggle hot key/clicking the plugin menu
+When a value is detected as convertible, but already in the destination unit, the cursor should not change to a question mark. Only when popping up a conversion window.

@@ -34,7 +34,7 @@ require(path.join(libDir, 'currency-converter.js'));
 const { parse } = window.UnitParser;
 const { convert } = window.UnitConverter;
 const { parse: parseCurrency } = window.CurrencyParser;
-const { convert: convertCurrency, _setRates } = window.CurrencyConverter;
+const { convert: convertCurrency, _setRates, isReady, setTargetCurrency } = window.CurrencyConverter;
 
 // ---------- load fixtures ----------
 const fixtures = JSON.parse(
@@ -47,6 +47,10 @@ const currencyFixtures = JSON.parse(
 
 const currencyConversionFixtures = JSON.parse(
   fs.readFileSync(path.join(__dirname, 'currency-conversion-fixtures.json'), 'utf-8')
+);
+
+const settingsFixtures = JSON.parse(
+  fs.readFileSync(path.join(__dirname, 'settings-fixtures.json'), 'utf-8')
 );
 
 // ---------- run unit tests ----------
@@ -151,13 +155,99 @@ for (const tc of currencyConversionFixtures) {
   }
 }
 
+// ---------- run settings tests ----------
+let spassed = 0;
+let sfailed = 0;
+const sfailures = [];
+
+for (const tc of settingsFixtures) {
+  const parsed = parse(tc.input);
+  const settings = tc.settings || {};
+
+  const actual = parsed.flatMap(match => {
+    if (match.isDimension) {
+      return match.values.flatMap((v, i) => {
+        const results = convert(v, match.unit, settings);
+        if (!results) return [];
+        const dimOriginal = (match.rawValues ? match.rawValues[i] : v) + ' ' + (match.unitText || match.unit);
+        return results.map(conv => {
+          const label = conv.label ? ` (${conv.label})` : '';
+          return `${dimOriginal} \u2192 ${conv.formatted}${label}`;
+        });
+      });
+    }
+    if (match.isRange) {
+      const r1 = convert(match.value, match.unit, settings);
+      const r2 = convert(match.value2, match.unit, settings);
+      if (!r1 || !r2) return [];
+      const results = r1.map((c1, i) => {
+        const c2 = r2[i];
+        const sp = c1.formatted.lastIndexOf(' ');
+        const num2 = c2.formatted.slice(0, c2.formatted.lastIndexOf(' '));
+        return { ...c1, formatted: c1.formatted.slice(0, sp) + '-' + num2 + c1.formatted.slice(sp) };
+      });
+      return results.map(conv => {
+        const label = conv.label ? ` (${conv.label})` : '';
+        return `${match.original} \u2192 ${conv.formatted}${label}`;
+      });
+    }
+    const results = convert(match.value, match.unit, settings);
+    if (!results) return [];
+    return results.map(conv => {
+      const label = conv.label ? ` (${conv.label})` : '';
+      return `${match.original} \u2192 ${conv.formatted}${label}`;
+    });
+  });
+
+  const expected = tc.expected || [];
+  const ok = actual.length === expected.length && actual.every((a, i) => a === expected[i]);
+  if (ok) {
+    spassed++;
+  } else {
+    sfailed++;
+    sfailures.push({ note: tc.note, input: tc.input, settings: tc.settings, expected, actual });
+  }
+}
+
+// ---------- run currency error state tests ----------
+let cepassed = 0;
+let cefailed = 0;
+const cefailures = [];
+
+function ceAssert(label, actual, expected) {
+  if (actual === expected) {
+    cepassed++;
+  } else {
+    cefailed++;
+    cefailures.push({ label, expected, actual });
+  }
+}
+
+// isReady() returns false when rates have not been loaded
+_setRates(null, null);
+ceAssert('isReady() false when rates=null', isReady(), false);
+
+// isReady() returns true once rates are set (even if empty)
+_setRates({}, '2026-01-01');
+ceAssert('isReady() true with empty rates object', isReady(), true);
+
+// convert returns null when the from-currency has no rate entry
+ceAssert('convert returns null for unknown currency with empty rates', convertCurrency(100, 'USD'), null);
+
+// convert returns null when converting from AUD (the base currency, never in rates)
+_setRates({ USD: 0.625, EUR: 0.58 }, '2026-01-01');
+setTargetCurrency('AUD');
+ceAssert('convert returns null when fromCurrency=AUD (base not in rates)', convertCurrency(100, 'AUD'), null);
+
 // ---------- report ----------
 const cvtotal = currencyConversionFixtures.length;
 console.log(`\nUnit tests:            ${passed} passed, ${failed} failed, ${fixtures.length} total`);
 console.log(`Currency parse tests:  ${cpassed} passed, ${cfailed} failed, ${currencyFixtures.length} total`);
-console.log(`Currency conv. tests:  ${cvpassed} passed, ${cvfailed} failed, ${cvtotal} total\n`);
+console.log(`Currency conv. tests:  ${cvpassed} passed, ${cvfailed} failed, ${cvtotal} total`);
+console.log(`Settings tests:        ${spassed} passed, ${sfailed} failed, ${settingsFixtures.length} total`);
+console.log(`Currency error tests:  ${cepassed} passed, ${cefailed} failed, ${cepassed + cefailed} total\n`);
 
-const allFailures = [...failures, ...cfailures, ...cvfailures];
+const allFailures = [...failures, ...cfailures, ...cvfailures, ...sfailures, ...cefailures];
 if (allFailures.length) {
   for (const f of failures) {
     console.log(`FAIL (unit): "${f.input}"`);
@@ -174,6 +264,19 @@ if (allFailures.length) {
   }
   for (const f of cvfailures) {
     console.log(`FAIL (currency conv): ${f.value} ${f.currency}`);
+    console.log(`  expected: ${JSON.stringify(f.expected)}`);
+    console.log(`  actual:   ${JSON.stringify(f.actual)}`);
+    console.log();
+  }
+  for (const f of sfailures) {
+    const note = f.note ? ` [${f.note}]` : '';
+    console.log(`FAIL (settings)${note}: "${f.input}" settings=${JSON.stringify(f.settings)}`);
+    console.log(`  expected: ${JSON.stringify(f.expected)}`);
+    console.log(`  actual:   ${JSON.stringify(f.actual)}`);
+    console.log();
+  }
+  for (const f of cefailures) {
+    console.log(`FAIL (currency error): ${f.label}`);
     console.log(`  expected: ${JSON.stringify(f.expected)}`);
     console.log(`  actual:   ${JSON.stringify(f.actual)}`);
     console.log();

@@ -659,6 +659,7 @@
 
   function deactivateReplace() {
     if (!isReplaceActive) return;
+    if (settings.permanentReplace) return;
     isReplaceActive = false;
     replacedSpans.forEach(span => {
       if (span.dataset.ucOriginal) span.textContent = span.dataset.ucOriginal;
@@ -733,9 +734,15 @@
   startPageScan();
 
   // Load persisted settings and apply them; stop scan if user disabled it
+  function applyHoverCursor(enabled) {
+    document.body.classList.toggle('uc-hover-enabled', enabled);
+  }
+
   window.ConvertigoSettings.load().then(loaded => {
     settings = loaded;
+    applyHoverCursor(settings.hoverEnabled);
     if (!settings.pageScanEnabled) stopPageScan();
+    if (settings.permanentReplace) activateReplace();
   });
 
   // React to settings changes without page reload
@@ -743,13 +750,19 @@
     const wasPageScan = settings.pageScanEnabled;
     settings = newSettings;
 
+    applyHoverCursor(settings.hoverEnabled);
+
     if (settings.pageScanEnabled && !wasPageScan) {
       startPageScan();
     } else if (!settings.pageScanEnabled && wasPageScan) {
       stopPageScan();
     }
 
-    // Deactivate replace if the key changed while active
-    if (isReplaceActive) deactivateReplace();
+    if (settings.permanentReplace) {
+      if (!isReplaceActive) activateReplace();
+    } else {
+      // Deactivate replace if permanent mode turned off or key changed while active
+      if (isReplaceActive) deactivateReplace();
+    }
   });
 })();

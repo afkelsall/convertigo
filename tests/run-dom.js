@@ -1,0 +1,428 @@
+/**
+ * DOM-based regression test for the full-page key-toggle feature.
+ *
+ * Simulates the complete scan → activate-replace → deactivate-replace lifecycle
+ * from content/content.js using jsdom, against all unit and currency fixtures.
+ *
+ * Usage:  node tests/run-dom.js
+ */
+
+'use strict';
+
+const fs   = require('fs');
+const path = require('path');
+const { JSDOM } = require('jsdom');
+
+// ---------- Bootstrap jsdom ----------
+const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+const window   = dom.window;
+const document = window.document;
+
+global.window      = window;
+global.document    = document;
+global.Node        = window.Node;
+global.NodeFilter  = window.NodeFilter;
+
+// Shim browser globals expected by the library scripts
+global.browser = {
+  runtime: { sendMessage: () => Promise.reject(new Error('not available in tests')) },
+  storage: {
+    local: { get: () => Promise.resolve({}) },
+    onChanged: { addListener: () => {} }
+  }
+};
+
+// Load library scripts in dependency order
+const libDir = path.join(__dirname, '..', 'lib');
+require(path.join(libDir, 'settings.js'));
+require(path.join(libDir, 'parser.js'));
+require(path.join(libDir, 'converter.js'));
+require(path.join(libDir, 'currency-parser.js'));
+require(path.join(libDir, 'currency-converter.js'));
+
+// Inject mock exchange rates (base = AUD, so 1 AUD = X units of foreign currency)
+const MOCK_RATES = {
+  USD: 0.625, EUR: 0.58,  GBP: 0.5,   JPY: 95.0,
+  CAD: 0.87,  NZD: 1.08,  HKD: 4.88,  SGD: 0.84,
+  CHF: 0.55,  CNY: 4.55,  INR: 52.5,  KRW: 850,
+  BGN: 1.13,  BRL: 3.15,  CZK: 14.6,  DKK: 4.33,
+  HUF: 230,   IDR: 9800,  ILS: 2.25,  ISK: 86,
+  MXN: 10.8,  MYR: 2.95,  NOK: 6.72,  PHP: 35.5,
+  PLN: 2.52,  RON: 2.88,  SEK: 6.55,  THB: 22.1,
+  TRY: 20.2,  ZAR: 11.8
+};
+
+window.CurrencyConverter._setRates(MOCK_RATES, '2026-03-09');
+window.CurrencyConverter.setTargetCurrency('AUD');
+
+const settings = Object.assign({}, window.ConvertigoSettings.DEFAULTS, { targetCurrency: 'AUD' });
+
+// ---------- Core functions mirroring content.js ----------
+
+function processTextNode(textNode, currencyParseOpts) {
+  const text   = textNode.nodeValue;
+  const parent = textNode.parentElement;
+  if (!parent) return;
+
+  const unitMatches     = window.UnitParser.parse(text).map(m => ({ ...m, isCurrency: false }));
+  const currencyMatches = window.CurrencyParser.parse(text, currencyParseOpts).map(m => ({ ...m, isCurrency: true }));
+
+  const allMatches = [...unitMatches, ...currencyMatches].sort((a, b) => a.index - b.index);
+  const deduped = [];
+  let lastEnd = -1;
+  for (const m of allMatches) {
+    if (m.index >= lastEnd) {
+      deduped.push(m);
+      lastEnd = m.index + m.matchLength;
+    }
+  }
+
+  if (deduped.length === 0) return;
+
+  const fragment = document.createDocumentFragment();
+  let cursor = 0;
+  for (const m of deduped) {
+    if (m.index > cursor) {
+      fragment.appendChild(document.createTextNode(text.slice(cursor, m.index)));
+    }
+    const span = document.createElement('span');
+    span.className = 'uc-highlight';
+    span.dataset.ucOriginal   = text.slice(m.index, m.index + m.matchLength);
+    span.dataset.ucIsCurrency = m.isCurrency ? '1' : '0';
+    span.textContent = span.dataset.ucOriginal;
+    fragment.appendChild(span);
+    cursor = m.index + m.matchLength;
+  }
+  if (cursor < text.length) {
+    fragment.appendChild(document.createTextNode(text.slice(cursor)));
+  }
+  parent.replaceChild(fragment, textNode);
+}
+
+function getUnitReplacementText(original) {
+  const parsed = window.UnitParser.parse(original);
+  if (!parsed.length) return null;
+  const p = parsed[0];
+
+  if (p.isDimension) {
+    const parts = p.values.map(v => window.UnitConverter.convert(v, p.unit, settings));
+    if (!parts[0]) return null;
+    const unit = parts[0][0].formatted.split(' ').slice(1).join(' ');
+    const nums = parts.map(r => r ? r[0].formatted.split(' ')[0] : '?');
+    return nums.join(' x ') + ' ' + unit;
+  }
+
+  if (p.isRange) {
+    const r1 = window.UnitConverter.convert(p.value,  p.unit, settings);
+    const r2 = window.UnitConverter.convert(p.value2, p.unit, settings);
+    if (!r1 || !r2) return null;
+    const c1 = r1[0], c2 = r2[0];
+    const sp  = c1.formatted.lastIndexOf(' ');
+    const num2 = c2.formatted.slice(0, c2.formatted.lastIndexOf(' '));
+    return c1.formatted.slice(0, sp) + '-' + num2 + c1.formatted.slice(sp);
+  }
+
+  const result = window.UnitConverter.convert(p.value, p.unit, settings);
+  return result ? result[0].formatted : null;
+}
+
+function replaceHighlightSpan(span, replacedSpans) {
+  const original = span.dataset.ucOriginal;
+  if (!original) return;
+  let replacement = null;
+
+  if (span.dataset.ucIsCurrency === '1') {
+    if (window.CurrencyConverter.isReady()) {
+      const cp = window.CurrencyParser.parse(original, { dollarCurrency: 'USD', targetCurrency: 'AUD' });
+      if (cp.length) {
+        const res = window.CurrencyConverter.convert(cp[0].value, cp[0].currency, cp[0].multiplier);
+        if (res) replacement = res[0].formatted;
+      }
+    }
+  } else {
+    replacement = getUnitReplacementText(original);
+  }
+
+  if (!replacement) return;
+  span.textContent = replacement;
+  span.classList.add('uc-alt-replaced');
+  replacedSpans.push(span);
+}
+
+function deactivateReplace(replacedSpans) {
+  for (const span of replacedSpans) {
+    if (span.dataset.ucOriginal) span.textContent = span.dataset.ucOriginal;
+    span.classList.remove('uc-alt-replaced');
+  }
+}
+
+// ---------- Load fixtures ----------
+const unitFixtures     = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures.json'), 'utf-8'));
+const currencyFixtures = JSON.parse(fs.readFileSync(path.join(__dirname, 'currency-fixtures.json'), 'utf-8'));
+
+// ---------- Build DOM ----------
+const body = document.body;
+
+// Unit fixture paragraphs
+for (let i = 0; i < unitFixtures.length; i++) {
+  const p = document.createElement('p');
+  p.textContent = unitFixtures[i].input;
+  p.dataset.fixtureType = 'unit';
+  p.dataset.fixtureIdx  = String(i);
+  body.appendChild(p);
+}
+
+// Currency fixture paragraphs
+for (let i = 0; i < currencyFixtures.length; i++) {
+  const p = document.createElement('p');
+  p.textContent = currencyFixtures[i].input;
+  p.dataset.fixtureType = 'currency';
+  p.dataset.fixtureIdx  = String(i);
+  body.appendChild(p);
+}
+
+// ---------- Simulate page scan ----------
+for (const p of body.children) {
+  const fixtureType = p.dataset.fixtureType;
+  const fixtureIdx  = parseInt(p.dataset.fixtureIdx, 10);
+  const fixture = fixtureType === 'unit' ? unitFixtures[fixtureIdx] : currencyFixtures[fixtureIdx];
+  const dollarCurrency = fixture.dollarCurrency || 'USD';
+  const currencyParseOpts = { dollarCurrency, targetCurrency: 'AUD' };
+
+  // Collect text nodes first (processing replaces them)
+  const textNodes = [];
+  const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.nodeValue.trim()) textNodes.push(node);
+  }
+  for (const tn of textNodes) processTextNode(tn, currencyParseOpts);
+}
+
+// ---------- Phase 1: Verify scan (detection) ----------
+let scanPassed = 0, scanFailed = 0;
+const scanFailures = [];
+
+for (const p of body.children) {
+  const fixtureType = p.dataset.fixtureType;
+  const fixtureIdx  = parseInt(p.dataset.fixtureIdx, 10);
+  const fixture = fixtureType === 'unit' ? unitFixtures[fixtureIdx] : currencyFixtures[fixtureIdx];
+
+  if (fixtureType === 'unit') {
+    // For unit fixtures: verify unit spans (ignore currency spans which are legitimately detected too).
+    // The expected originals come from what UnitParser.parse() would return — each match's .original.
+    const unitSpans = [...p.querySelectorAll('.uc-highlight[data-uc-is-currency="0"]')];
+    const expectedOriginals = window.UnitParser.parse(fixture.input).map(m => m.original);
+    const actualOriginals   = unitSpans.map(s => s.dataset.ucOriginal);
+
+    const ok = expectedOriginals.length === actualOriginals.length &&
+               expectedOriginals.every((exp, i) => actualOriginals[i] === exp);
+
+    if (ok) {
+      scanPassed++;
+    } else {
+      scanFailed++;
+      scanFailures.push({ type: 'unit', input: fixture.input, expectedOriginals, actualOriginals });
+    }
+  } else {
+    // Currency fixtures: verify currency spans match fixture expected originals.
+    const currencySpans = [...p.querySelectorAll('.uc-highlight[data-uc-is-currency="1"]')];
+    const expectedOriginals = fixture.expected.map(e => e.original);
+    const actualOriginals   = currencySpans.map(s => s.dataset.ucOriginal);
+
+    const ok = expectedOriginals.length === actualOriginals.length &&
+               expectedOriginals.every((exp, i) => actualOriginals[i] === exp);
+
+    if (ok) {
+      scanPassed++;
+    } else {
+      scanFailed++;
+      scanFailures.push({ type: 'currency', note: fixture.note, input: fixture.input, expectedOriginals, actualOriginals });
+    }
+  }
+}
+
+// ---------- Phase 2: Simulate activate-replace ----------
+const replacedSpans = [];
+for (const span of document.querySelectorAll('.uc-highlight')) {
+  replaceHighlightSpan(span, replacedSpans);
+}
+
+// ---------- Phase 3: Verify replacements ----------
+let replacePassed = 0, replaceFailed = 0;
+const replaceFailures = [];
+
+for (const p of body.children) {
+  const fixtureType = p.dataset.fixtureType;
+  const fixtureIdx  = parseInt(p.dataset.fixtureIdx, 10);
+  const fixture = fixtureType === 'unit' ? unitFixtures[fixtureIdx] : currencyFixtures[fixtureIdx];
+  const spans = p.querySelectorAll('.uc-highlight');
+
+  if (spans.length === 0) {
+    // No spans → no replacement to verify; already checked in scan phase
+    replacePassed++;
+    continue;
+  }
+
+  let allOk = true;
+  const details = [];
+
+  for (const span of spans) {
+    const original = span.dataset.ucOriginal;
+    let expectedReplacement;
+
+    if (span.dataset.ucIsCurrency === '1') {
+      const dollarCurrency = fixture.dollarCurrency || 'USD';
+      const cp = window.CurrencyParser.parse(original, { dollarCurrency, targetCurrency: 'AUD' });
+      if (cp.length) {
+        const res = window.CurrencyConverter.convert(cp[0].value, cp[0].currency, cp[0].multiplier);
+        expectedReplacement = res ? res[0].formatted : null;
+      }
+    } else {
+      expectedReplacement = getUnitReplacementText(original);
+    }
+
+    const actual = span.textContent;
+    const hasClass = span.classList.contains('uc-alt-replaced');
+
+    if (!expectedReplacement) {
+      // Span exists but produced no replacement — should not have been replaced
+      if (actual !== original || hasClass) {
+        allOk = false;
+        details.push({ original, expected: original + ' (unreplaced)', actual });
+      }
+    } else if (actual !== expectedReplacement || !hasClass) {
+      allOk = false;
+      details.push({ original, expected: expectedReplacement, actual });
+    }
+  }
+
+  if (allOk) {
+    replacePassed++;
+  } else {
+    replaceFailed++;
+    replaceFailures.push({
+      type: fixtureType,
+      input: fixture.input,
+      note: fixture.note || '',
+      details
+    });
+  }
+}
+
+// ---------- Phase 4: Simulate deactivate-replace ----------
+deactivateReplace(replacedSpans);
+
+// ---------- Phase 5: Verify restore ----------
+let restorePassed = 0, restoreFailed = 0;
+const restoreFailures = [];
+
+for (const span of document.querySelectorAll('.uc-highlight')) {
+  const original = span.dataset.ucOriginal;
+  const actual   = span.textContent;
+  const hasClass = span.classList.contains('uc-alt-replaced');
+
+  if (actual === original && !hasClass) {
+    restorePassed++;
+  } else {
+    restoreFailed++;
+    restoreFailures.push({ original, actual, hasClass });
+  }
+}
+
+// ---------- Mixed unit + currency dedup test ----------
+let mixedPassed = 0, mixedFailed = 0;
+const mixedFailures = [];
+
+const mixedCase = {
+  text: 'The $50 widget weighs 2.5 kg and is 30 cm wide',
+  expectedCurrencyOriginals: ['$50'],
+  expectedUnitOriginals: ['2.5 kg', '30 cm']
+};
+
+const mixedEl = document.createElement('p');
+mixedEl.textContent = mixedCase.text;
+document.body.appendChild(mixedEl);
+
+const mTextNodes = [];
+const mWalker = document.createTreeWalker(mixedEl, NodeFilter.SHOW_TEXT);
+let mNode;
+while ((mNode = mWalker.nextNode())) {
+  if (mNode.nodeValue.trim()) mTextNodes.push(mNode);
+}
+for (const tn of mTextNodes) processTextNode(tn, { dollarCurrency: 'USD', targetCurrency: 'AUD' });
+
+const mCurrSpans = [...mixedEl.querySelectorAll('.uc-highlight[data-uc-is-currency="1"]')];
+const mUnitSpans = [...mixedEl.querySelectorAll('.uc-highlight[data-uc-is-currency="0"]')];
+
+const actualCurrOrig = mCurrSpans.map(s => s.dataset.ucOriginal);
+if (JSON.stringify(actualCurrOrig) === JSON.stringify(mixedCase.expectedCurrencyOriginals)) {
+  mixedPassed++;
+} else {
+  mixedFailed++;
+  mixedFailures.push(`currency spans: expected ${JSON.stringify(mixedCase.expectedCurrencyOriginals)}, got ${JSON.stringify(actualCurrOrig)}`);
+}
+
+const actualUnitOrig = mUnitSpans.map(s => s.dataset.ucOriginal);
+if (JSON.stringify(actualUnitOrig) === JSON.stringify(mixedCase.expectedUnitOriginals)) {
+  mixedPassed++;
+} else {
+  mixedFailed++;
+  mixedFailures.push(`unit spans: expected ${JSON.stringify(mixedCase.expectedUnitOriginals)}, got ${JSON.stringify(actualUnitOrig)}`);
+}
+
+// Verify no span overlaps by walking all spans in document order and checking positions in source text
+const allMixedSpans = [...mixedEl.querySelectorAll('.uc-highlight')];
+let lastEndPos = 0;
+let noOverlap = true;
+for (const span of allMixedSpans) {
+  const orig = span.dataset.ucOriginal;
+  const pos = mixedCase.text.indexOf(orig, lastEndPos);
+  if (pos === -1 || pos < lastEndPos) { noOverlap = false; break; }
+  lastEndPos = pos + orig.length;
+}
+if (noOverlap) {
+  mixedPassed++;
+} else {
+  mixedFailed++;
+  mixedFailures.push('spans overlap or are out of order in original text');
+}
+
+// ---------- Report ----------
+const total = unitFixtures.length + currencyFixtures.length;
+console.log(`\nScan detection:      ${scanPassed} passed, ${scanFailed} failed, ${total} total`);
+console.log(`Replace activation:  ${replacePassed} passed, ${replaceFailed} failed, ${total} total`);
+console.log(`Restore deactivate:  ${restorePassed} passed, ${restoreFailed} failed (per-span)`);
+console.log(`Mixed dedup tests:   ${mixedPassed} passed, ${mixedFailed} failed, ${mixedPassed + mixedFailed} total\n`);
+
+for (const f of scanFailures) {
+  const note = f.note ? ` [${f.note}]` : '';
+  console.log(`FAIL (scan/${f.type})${note}: "${f.input}"`);
+  console.log(`  expected originals: ${JSON.stringify(f.expectedOriginals)}`);
+  console.log(`  actual   originals: ${JSON.stringify(f.actualOriginals)}`);
+  console.log();
+}
+
+for (const f of replaceFailures) {
+  const note = f.note ? ` [${f.note}]` : '';
+  console.log(`FAIL (replace/${f.type})${note}: "${f.input}"`);
+  for (const d of f.details) {
+    console.log(`  span "${d.original}": expected "${d.expected}", got "${d.actual}"`);
+  }
+  console.log();
+}
+
+for (const f of restoreFailures) {
+  console.log(`FAIL (restore): original="${f.original}", actual="${f.actual}", hasClass=${f.hasClass}`);
+}
+
+for (const msg of mixedFailures) {
+  console.log(`FAIL (mixed dedup): ${msg}`);
+}
+if (mixedFailures.length) console.log();
+
+const anyFailed = scanFailed > 0 || replaceFailed > 0 || restoreFailed > 0 || mixedFailed > 0;
+if (!anyFailed) {
+  console.log('All DOM toggle tests passed.');
+}
+process.exit(anyFailed ? 1 : 0);

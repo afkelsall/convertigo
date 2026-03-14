@@ -71,6 +71,7 @@
     document.getElementById('hover-enabled').checked = settings.hoverEnabled;
     document.getElementById('page-scan-enabled').checked = settings.pageScanEnabled;
     document.getElementById('replace-key').value = settings.replaceKey;
+    document.getElementById('permanent-replace').checked = settings.permanentReplace;
   }
 
   function readSettings() {
@@ -82,6 +83,7 @@
       hoverEnabled: document.getElementById('hover-enabled').checked,
       pageScanEnabled: document.getElementById('page-scan-enabled').checked,
       replaceKey: document.getElementById('replace-key').value,
+      permanentReplace: document.getElementById('permanent-replace').checked,
     };
   }
 

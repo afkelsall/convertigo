@@ -1,0 +1,56 @@
+[
+  {
+    "note": "metric filter suppresses metric input",
+    "input": "A 5 km race",
+    "settings": { "unitSystem": "metric" },
+    "expected": []
+  },
+  {
+    "note": "metric filter converts imperial input",
+    "input": "10 miles to go",
+    "settings": { "unitSystem": "metric" },
+    "expected": ["10 miles → 16.09 km"]
+  },
+  {
+    "note": "imperial filter suppresses imperial input",
+    "input": "10 miles to go",
+    "settings": { "unitSystem": "imperial" },
+    "expected": []
+  },
+  {
+    "note": "imperial filter converts metric input",
+    "input": "A 5 km race",
+    "settings": { "unitSystem": "imperial" },
+    "expected": ["5 km → 3.11 mi"]
+  },
+  {
+    "note": "temperaturePref °c shows only Celsius from Fahrenheit",
+    "input": "Room is 72°F",
+    "settings": { "temperaturePref": "°c" },
+    "expected": ["72°F → 22.22 °C"]
+  },
+  {
+    "note": "temperaturePref °f shows only Fahrenheit from Celsius",
+    "input": "Boils at 100°C",
+    "settings": { "temperaturePref": "°f" },
+    "expected": ["100°C → 212 °F"]
+  },
+  {
+    "note": "fuelPref mpg shows only MPG from L/100km",
+    "input": "Uses 8 L/100km",
+    "settings": { "fuelPref": "mpg" },
+    "expected": ["8 L/100km → 29.4 MPG"]
+  },
+  {
+    "note": "fuelPref l100km shows only L/100km from MPG",
+    "input": "Gets 30 mpg",
+    "settings": { "fuelPref": "l100km" },
+    "expected": ["30 mpg → 7.84 L/100km"]
+  },
+  {
+    "note": "fuelPref kml shows only km/L from MPG",
+    "input": "Gets 30 mpg",
+    "settings": { "fuelPref": "kml" },
+    "expected": ["30 mpg → 12.75 km/L"]
+  }
+]

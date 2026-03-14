@@ -123,6 +123,31 @@
     "expected": []
   },
   {
+    "note": "dollar sign with trailing currency code: $10AUD",
+    "input": "$10AUD",
+    "expected": []
+  },
+  {
+    "note": "dollar sign with trailing currency code: $10USD",
+    "input": "$10USD",
+    "expected": [{ "currency": "USD", "value": 10, "original": "$10USD" }]
+  },
+  {
+    "note": "dollar sign with trailing currency code and space: $10 AUD",
+    "input": "$10 AUD",
+    "expected": []
+  },
+  {
+    "note": "dollar sign with trailing currency code: $50CAD",
+    "input": "$50CAD",
+    "expected": [{ "currency": "CAD", "value": 50, "original": "$50CAD" }]
+  },
+  {
+    "note": "dollar sign with trailing code and decimal: $99.50NZD",
+    "input": "$99.50NZD",
+    "expected": [{ "currency": "NZD", "value": 99.5, "original": "$99.50NZD" }]
+  },
+  {
     "note": "lone dollar sign with no number — no match",
     "input": "$ sign only",
     "expected": []

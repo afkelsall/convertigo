@@ -39,12 +39,15 @@
 
 /* Highlight spans for detected values on page */
 .uc-highlight {
-  border-bottom: 1px dotted rgba(168, 230, 207, 0.45) !important;
+  border-bottom: 1px dotted rgba(80, 180, 140, 1.0) !important;
+}
+
+.uc-hover-enabled .uc-highlight {
   cursor: help !important;
 }
 
 .uc-highlight:hover {
-  border-bottom-color: rgba(168, 230, 207, 0.85) !important;
+  border-bottom-color: rgba(80, 180, 140, 1.0) !important;
   background: rgba(168, 230, 207, 0.06) !important;
 }
 
