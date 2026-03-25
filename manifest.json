@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Convertigo",
-  "version": "1.1.4",
+  "version": "1.1.7",
   "description": "Detects measurement units and currencies in selected text and shows conversions in a popup.",
   "icons": {
     "48": "icons/icon-48.png",

@@ -247,11 +247,83 @@
     "input": "Wind at 15 knots",
     "expected": ["15 knots → 27.78 km/h"]
   },
-  { "input": "Gets 30 mpg", "expected": ["30 mpg → 12.75 km/L", "30 mpg → 7.84 L/100km"] },
-  { "input": "Uses 8 L/100km", "expected": ["8 L/100km → 29.4 MPG", "8 L/100km → 12.5 km/L"] },
-  { "input": "Economy is 12 km/L", "expected": ["12 km/L → 28.23 MPG", "12 km/L → 8.33 L/100km"] },
-  { "note": "downscale km→mi→ft", "input": "Distance is 0.001 km", "expected": ["0.001 km → 3.28 ft"] },
-  { "note": "downscale mi→km→m", "input": "Distance is 0.01 mi", "expected": ["0.01 mi → 16.09 m"] },
-  { "note": "downscale l→qt→cup→tbsp (double step)", "input": "Volume is 0.05 L", "expected": ["0.05 L → 3.38 tbsp"] },
-  { "note": "zero value does not infinite-loop in downscale", "input": "Distance is 0 km", "expected": ["0 km → 0 mi"] }
+  {
+    "input": "Gets 30 mpg",
+    "expected": ["30 mpg → 12.75 km/L", "30 mpg → 7.84 L/100km"]
+  },
+  {
+    "input": "Uses 8 L/100km",
+    "expected": ["8 L/100km → 29.4 MPG", "8 L/100km → 12.5 km/L"]
+  },
+  {
+    "input": "Economy is 12 km/L",
+    "expected": ["12 km/L → 28.23 MPG", "12 km/L → 8.33 L/100km"]
+  },
+  {
+    "note": "downscale km→mi→ft",
+    "input": "Distance is 0.001 km",
+    "expected": ["0.001 km → 3.28 ft"]
+  },
+  {
+    "note": "downscale mi→km→m",
+    "input": "Distance is 0.01 mi",
+    "expected": ["0.01 mi → 16.09 m"]
+  },
+  {
+    "note": "downscale l→qt→cup→tbsp (double step)",
+    "input": "Volume is 0.05 L",
+    "expected": ["0.05 L → 3.38 tbsp"]
+  },
+  {
+    "note": "zero value does not infinite-loop in downscale",
+    "input": "Distance is 0 km",
+    "expected": ["0 km → 0 mi"]
+  },
+  {
+    "note": "model number should not match",
+    "input": "Samsung DC62-00024M Fl Washer",
+    "expected": []
+  },
+  {
+    "note": "letter-prefixed number should not match",
+    "input": "ABC12mm sensor",
+    "expected": []
+  },
+  {
+    "note": "leading zeros should not match",
+    "input": "Part 00024in",
+    "expected": []
+  },
+  {
+    "note": "leading zeros should not match",
+    "input": "007 kg",
+    "expected": []
+  },
+  {
+    "note": "leading zeros in dimension should not match",
+    "input": "012x5 cm",
+    "expected": []
+  },
+  {
+    "note": "bare zero is valid",
+    "input": "0 mm",
+    "expected": ["0 mm → 0 in"]
+  },
+  {
+    "note": "decimal zero is valid",
+    "input": "0.5 kg",
+    "expected": ["0.5 kg → 1.1 lb"]
+  },
+  {
+    "input": "DC62-00024M",
+    "expected": []
+  },
+  {
+    "input": "00024M",
+    "expected": []
+  },
+  {
+    "input": "DC62M",
+    "expected": []
+  }
 ]

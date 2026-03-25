@@ -409,13 +409,23 @@
       }
     }
 
+    // Filter out units already in the user's preferred system (they need no conversion)
+    const filtered = deduped.filter(m => {
+      if (m.isCurrency) return true;
+      const srcSystem = window.UnitConverter.UNIT_SYSTEM[m.unit];
+      if (!srcSystem) return true;
+      if (settings.unitSystem === 'metric' && srcSystem === 'metric') return false;
+      if (settings.unitSystem === 'imperial' && srcSystem === 'imperial') return false;
+      return true;
+    });
+
     // Mark scanned regardless — avoids re-visiting on future MutationObserver triggers
     parent.dataset.ucScanned = '1';
-    if (deduped.length === 0) return;
+    if (filtered.length === 0) return;
 
     const fragment = document.createDocumentFragment();
     let cursor = 0;
-    for (const m of deduped) {
+    for (const m of filtered) {
       if (m.index > cursor) {
         fragment.appendChild(document.createTextNode(text.slice(cursor, m.index)));
       }
@@ -718,6 +728,13 @@
     }
   }
 
+  function removeAllHighlights() {
+    document.querySelectorAll('.uc-highlight').forEach(span => {
+      span.replaceWith(document.createTextNode(span.dataset.ucOriginal || span.textContent));
+    });
+    document.querySelectorAll('[data-uc-scanned]').forEach(el => delete el.dataset.ucScanned);
+  }
+
   function stopPageScan() {
     if (ucObserver) {
       ucObserver.disconnect();
@@ -748,11 +765,15 @@
   // React to settings changes without page reload
   window.ConvertigoSettings.onChange(newSettings => {
     const wasPageScan = settings.pageScanEnabled;
+    const prevUnitSystem = settings.unitSystem;
     settings = newSettings;
 
     applyHoverCursor(settings.hoverEnabled);
 
-    if (settings.pageScanEnabled && !wasPageScan) {
+    if (settings.unitSystem !== prevUnitSystem && settings.pageScanEnabled) {
+      removeAllHighlights();
+      startPageScan();
+    } else if (settings.pageScanEnabled && !wasPageScan) {
       startPageScan();
     } else if (!settings.pageScanEnabled && wasPageScan) {
       stopPageScan();
