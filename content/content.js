@@ -363,6 +363,13 @@
   // ── Page-scan helpers ─────────────────────────────────────────────────────
 
   const SKIP_TAGS = new Set(['SCRIPT','STYLE','NOSCRIPT','IFRAME','TEXTAREA','INPUT','SELECT','BUTTON']);
+  const BLOCK_TAGS = new Set([
+    'ADDRESS','ARTICLE','ASIDE','BLOCKQUOTE','BODY','DD','DETAILS','DIALOG',
+    'DIV','DL','DT','FIELDSET','FIGCAPTION','FIGURE','FOOTER','FORM',
+    'H1','H2','H3','H4','H5','H6','HEADER','HGROUP','HR','LI','MAIN',
+    'NAV','OL','P','PRE','SECTION','SUMMARY','TABLE','TBODY','TD','TFOOT',
+    'TH','THEAD','TR','UL'
+  ]);
 
   function isSkippableNode(node) {
     let el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
@@ -376,27 +383,67 @@
     return false;
   }
 
-  function collectTextNodes(root, out) {
+  function getBlockAncestor(node) {
+    let el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    while (el) {
+      if (BLOCK_TAGS.has(el.tagName)) return el;
+      el = el.parentElement;
+    }
+    return document.body;
+  }
+
+  function collectBlockElements(root, out) {
+    const seen = new Set();
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         if (isSkippableNode(node)) return NodeFilter.FILTER_REJECT;
-        if (node.parentElement && node.parentElement.dataset.ucScanned) return NodeFilter.FILTER_REJECT;
         if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT;
       }
     });
     let node;
-    while ((node = walker.nextNode())) out.push(node);
+    while ((node = walker.nextNode())) {
+      const block = getBlockAncestor(node);
+      if (block.dataset.ucScanned) continue;
+      if (!seen.has(block)) {
+        seen.add(block);
+        out.push(block);
+      }
+    }
   }
 
-  function processTextNode(textNode) {
-    if (!textNode.isConnected) return;
-    const text = textNode.nodeValue;
-    const parent = textNode.parentElement;
-    if (!parent) return;
+  function processBlockElement(blockEl) {
+    if (!blockEl.isConnected) return;
+    if (blockEl.dataset.ucScanned) return;
 
-    const unitMatches = window.UnitParser.parse(text).map(m => ({ ...m, isCurrency: false }));
-    const currencyMatches = window.CurrencyParser.parse(text, getCurrencyParseOptions()).map(m => ({ ...m, isCurrency: true }));
+    // Collect all text nodes within this block (not in nested blocks or highlights)
+    // Include whitespace-only nodes — they may be separators between inline elements
+    const textNodes = [];
+    const walker = document.createTreeWalker(blockEl, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (isSkippableNode(node)) return NodeFilter.FILTER_REJECT;
+        if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    let n;
+    while ((n = walker.nextNode())) {
+      if (getBlockAncestor(n) === blockEl) textNodes.push(n);
+    }
+
+    blockEl.dataset.ucScanned = '1';
+    if (textNodes.length === 0) return;
+
+    // Build concatenated text with position mapping
+    let fullText = '';
+    const segments = [];
+    for (const tn of textNodes) {
+      segments.push({ node: tn, start: fullText.length, end: fullText.length + tn.nodeValue.length });
+      fullText += tn.nodeValue;
+    }
+
+    const unitMatches = window.UnitParser.parse(fullText).map(m => ({ ...m, isCurrency: false }));
+    const currencyMatches = window.CurrencyParser.parse(fullText, getCurrencyParseOptions()).map(m => ({ ...m, isCurrency: true }));
 
     // Merge, sort by index, deduplicate overlaps
     const allMatches = [...unitMatches, ...currencyMatches].sort((a, b) => a.index - b.index);
@@ -419,36 +466,43 @@
       return true;
     });
 
-    // Mark scanned regardless — avoids re-visiting on future MutationObserver triggers
-    parent.dataset.ucScanned = '1';
     if (filtered.length === 0) return;
 
-    const fragment = document.createDocumentFragment();
-    let cursor = 0;
-    for (const m of filtered) {
-      if (m.index > cursor) {
-        fragment.appendChild(document.createTextNode(text.slice(cursor, m.index)));
-      }
+    // Process matches in reverse order to preserve DOM positions
+    for (let i = filtered.length - 1; i >= 0; i--) {
+      const m = filtered[i];
+      const matchStart = m.index;
+      const matchEnd = m.index + m.matchLength;
+      const matchText = fullText.slice(matchStart, matchEnd);
+
+      // Find which text node segments this match spans
+      const startSeg = segments.find(s => matchStart >= s.start && matchStart < s.end);
+      const endSeg = segments.find(s => matchEnd > s.start && matchEnd <= s.end);
+      if (!startSeg || !endSeg || !startSeg.node.isConnected || !endSeg.node.isConnected) continue;
+
+      const range = document.createRange();
+      range.setStart(startSeg.node, matchStart - startSeg.start);
+      range.setEnd(endSeg.node, matchEnd - endSeg.start);
+
       const span = document.createElement('span');
       span.className = 'uc-highlight';
-      span.dataset.ucOriginal = text.slice(m.index, m.index + m.matchLength);
+      span.dataset.ucOriginal = matchText;
       span.dataset.ucIsCurrency = m.isCurrency ? '1' : '0';
-      span.textContent = text.slice(m.index, m.index + m.matchLength);
-      fragment.appendChild(span);
+
+      // extractContents works for both same-node and cross-boundary matches
+      const contents = range.extractContents();
+      span.appendChild(contents);
+      range.insertNode(span);
+
       replaceSpanIfActive(span);
-      cursor = m.index + m.matchLength;
     }
-    if (cursor < text.length) {
-      fragment.appendChild(document.createTextNode(text.slice(cursor)));
-    }
-    parent.replaceChild(fragment, textNode);
   }
 
   function drainScanQueue(deadline) {
     scanIdleId = null;
     while (scanQueue.length > 0 && deadline.timeRemaining() > 5) {
-      const node = scanQueue.shift();
-      if (node.isConnected) processTextNode(node);
+      const blockEl = scanQueue.shift();
+      if (blockEl.isConnected) processBlockElement(blockEl);
     }
     if (scanQueue.length > 0) {
       scanIdleId = requestIdleCallback(drainScanQueue, { timeout: 2000 });
@@ -456,7 +510,7 @@
   }
 
   function enqueueSubtree(root) {
-    collectTextNodes(root, scanQueue);
+    collectBlockElements(root, scanQueue);
     if (!scanIdleId) {
       scanIdleId = requestIdleCallback(drainScanQueue, { timeout: 2000 });
     }
@@ -640,6 +694,7 @@
     }
 
     if (!replacement) return;
+    if (!span.dataset.ucInnerHtml) span.dataset.ucInnerHtml = span.innerHTML;
     span.textContent = replacement;
     span.classList.add('uc-alt-replaced');
     replacedSpans.push(span);
@@ -672,7 +727,12 @@
     if (settings.permanentReplace) return;
     isReplaceActive = false;
     replacedSpans.forEach(span => {
-      if (span.dataset.ucOriginal) span.textContent = span.dataset.ucOriginal;
+      if (span.dataset.ucInnerHtml) {
+        span.innerHTML = span.dataset.ucInnerHtml;
+        delete span.dataset.ucInnerHtml;
+      } else if (span.dataset.ucOriginal) {
+        span.textContent = span.dataset.ucOriginal;
+      }
       span.classList.remove('uc-alt-replaced');
     });
     replacedSpans = [];
@@ -720,8 +780,12 @@
         mutationDebounce = setTimeout(() => {
           for (const m of mutations)
             for (const node of m.addedNodes)
-              if (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('uc-highlight'))
+              if (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('uc-highlight')) {
+                // Clear scanned flag on ancestor block so new inline content triggers re-scan
+                const block = getBlockAncestor(node);
+                if (block && block.dataset.ucScanned) delete block.dataset.ucScanned;
                 enqueueSubtree(node);
+              }
         }, 200);
       });
       ucObserver.observe(document.body, { childList: true, subtree: true });

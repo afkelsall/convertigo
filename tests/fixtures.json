@@ -1,5 +1,17 @@
 [
   {
+    "input": "a 28-ounce can of tomatoes",
+    "expected": ["28-ounce → 793.79 g (mass)", "28-ounce → 828.06 ml (fluid)"]
+  },
+  {
+    "input": "one 15-oz can",
+    "expected": ["15-oz → 425.24 g (mass)", "15-oz → 443.6 ml (fluid)"]
+  },
+  {
+    "input": "a 2-pound roast",
+    "expected": ["2-pound → 907.18 g"]
+  },
+  {
     "input": "The board is 12 inches wide",
     "expected": ["12 inches → 30.48 cm"]
   },
@@ -50,6 +62,10 @@
   {
     "input": "Contains 500g of sugar",
     "expected": ["500g → 17.64 oz"]
+  },
+  {
+    "input": "Contains 500 g of sugar",
+    "expected": ["500 g → 17.64 oz"]
   },
   {
     "input": "Use 4 oz of butter",

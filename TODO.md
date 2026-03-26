@@ -1,1 +1,0 @@
-When a value is detected as convertible, but already in the destination unit, the cursor should not change to a question mark. Only when popping up a conversion window.
