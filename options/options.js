@@ -119,7 +119,9 @@
       if (e.ctrlKey && e.altKey && e.shiftKey) {
         devUnlocked = true;
         devSection.style.display = '';
-        document.body.style.minHeight = document.body.scrollHeight + 'px';
+        requestAnimationFrame(() => {
+          document.body.style.minHeight = document.body.scrollHeight + 'px';
+        });
       }
     });
     document.addEventListener('keyup', () => {
