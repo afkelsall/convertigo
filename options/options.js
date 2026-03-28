@@ -131,12 +131,60 @@
       showSaved();
     });
 
-    document.getElementById('feedback-btn').addEventListener('click', async () => {
-      const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-      if (tabs[0]) {
-        await browser.tabs.sendMessage(tabs[0].id, { type: 'openFeedbackModal', selectionText: '' }).catch(() => {});
+    const mainContent = document.getElementById('main-content');
+    const feedbackPanel = document.getElementById('feedback-panel');
+    const feedbackDesc = document.getElementById('feedback-desc');
+    const feedbackSendBtn = document.getElementById('feedback-send-btn');
+    const feedbackBackBtn = document.getElementById('feedback-back-btn');
+    const feedbackStatus = document.getElementById('feedback-status');
+
+    document.getElementById('feedback-btn').addEventListener('click', () => {
+      mainContent.style.display = 'none';
+      feedbackPanel.style.display = 'flex';
+      feedbackDesc.focus();
+    });
+
+    feedbackBackBtn.addEventListener('click', () => {
+      mainContent.style.display = '';
+      feedbackPanel.style.display = 'none';
+      feedbackDesc.value = '';
+      feedbackStatus.textContent = '';
+      feedbackSendBtn.disabled = false;
+    });
+
+    feedbackSendBtn.addEventListener('click', async () => {
+      feedbackSendBtn.disabled = true;
+      feedbackStatus.textContent = 'Sending…';
+      feedbackStatus.style.color = '#7a7a9a';
+
+      const payload = {
+        service_id: 'service_ti37pko',
+        template_id: 'template_bjtngpd',
+        user_id: '0E2OQG346dXRcEVvs',
+        template_params: {
+          selected_text: '(general feedback)',
+          selection_html: '(none)',
+          page_url: '(not included)',
+          description: feedbackDesc.value.trim() || '(none)',
+          extension_version: browser.runtime.getManifest().version
+        }
+      };
+
+      try {
+        const result = await browser.runtime.sendMessage({ type: 'sendFeedback', payload });
+        if (result && result.ok) {
+          feedbackStatus.textContent = '✓ Sent!';
+          feedbackStatus.style.color = '#a8e6cf';
+          feedbackStatus.style.fontStyle = 'normal';
+        } else {
+          throw new Error(result && result.error ? result.error : 'HTTP ' + (result && result.status));
+        }
+      } catch (err) {
+        feedbackStatus.textContent = 'Error: ' + err.message;
+        feedbackStatus.style.color = '#f5c842';
+        feedbackStatus.style.fontStyle = 'normal';
+        feedbackSendBtn.disabled = false;
       }
-      window.close();
     });
   }
 

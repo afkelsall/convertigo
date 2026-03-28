@@ -189,9 +189,94 @@
       background: rgba(168,230,207,0.07);
       border-color: rgba(168,230,207,0.4);
     }
+
+    #feedback-panel {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    #feedback-panel h2 {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #a8e6cf;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    #feedback-hint {
+      font-size: 11px;
+      color: #7a7a9a;
+      line-height: 1.5;
+    }
+
+    #feedback-desc {
+      width: 100%;
+      box-sizing: border-box;
+      background: #12122a;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 5px;
+      color: #e0e0e0;
+      font-family: inherit;
+      font-size: 12px;
+      line-height: 1.4;
+      padding: 6px 8px;
+      resize: vertical;
+    }
+
+    #feedback-desc:focus {
+      outline: none;
+      border-color: rgba(168,230,207,0.4);
+    }
+
+    #feedback-desc::placeholder {
+      color: #4a4a6a;
+    }
+
+    #feedback-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #feedback-send-btn {
+      padding: 5px 14px;
+      background: #a8e6cf;
+      border: none;
+      border-radius: 5px;
+      color: #1a1a2e;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    #feedback-send-btn:disabled { opacity: 0.5; cursor: default; }
+
+    #feedback-back-btn {
+      padding: 5px 10px;
+      background: none;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 5px;
+      color: #7a7a9a;
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    #feedback-back-btn:hover { color: #e0e0e0; border-color: rgba(255,255,255,0.25); }
+
+    #feedback-status {
+      font-size: 11px;
+      color: #7a7a9a;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
+  <div id="main-content">
   <h1>Convertigo</h1>
 
   <div class="section">
@@ -257,6 +342,18 @@
   <button id="reset-btn">Reset to defaults</button>
 
   <button id="feedback-btn">Report conversion issue</button>
+  </div>
+
+  <div id="feedback-panel">
+    <h2>Report Issue</h2>
+    <p id="feedback-hint">For a specific conversion issue, select the text on the page and right-click → <em>Convertigo: Report conversion issue</em>.</p>
+    <textarea id="feedback-desc" rows="4" placeholder="Describe your feedback or issue"></textarea>
+    <div id="feedback-actions">
+      <button id="feedback-send-btn">Send</button>
+      <button id="feedback-back-btn">Back</button>
+      <span id="feedback-status"></span>
+    </div>
+  </div>
 
   <script src="../lib/settings.js"></script>
   <script src="options.js"></script>
