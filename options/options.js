@@ -72,8 +72,6 @@
     document.getElementById('page-scan-enabled').checked = settings.pageScanEnabled;
     document.getElementById('replace-key').value = settings.replaceKey;
     document.getElementById('permanent-replace').checked = settings.permanentReplace;
-    document.getElementById('dev-mode').checked = settings.devMode;
-    if (settings.devMode) document.getElementById('dev-section').style.visibility = '';
   }
 
   function readSettings() {
@@ -86,7 +84,6 @@
       pageScanEnabled: document.getElementById('page-scan-enabled').checked,
       replaceKey: document.getElementById('replace-key').value,
       permanentReplace: document.getElementById('permanent-replace').checked,
-      devMode: document.getElementById('dev-mode').checked,
     };
   }
 
@@ -113,19 +110,18 @@
       el.addEventListener('change', saveSettings);
     });
 
-    // Reveal dev section only while Ctrl+Alt+Shift are all held
-    const devSection = document.getElementById('dev-section');
-    let devUnlocked = false;
-    document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.altKey && e.shiftKey) {
-        devUnlocked = true;
-        devSection.style.visibility = '';
-      }
-    });
-    document.addEventListener('keyup', () => {
-      if (devUnlocked && !devSection.querySelector('#dev-mode').checked) {
-        devUnlocked = false;
-        devSection.style.visibility = 'hidden';
+    // Ctrl+Alt+Shift+D toggles dev mode — no visible UI, confirmed via title flash
+    const h1 = document.querySelector('h1');
+    document.addEventListener('keydown', async (e) => {
+      if (e.ctrlKey && e.altKey && e.shiftKey && e.key === 'D') {
+        const current = await window.ConvertigoSettings.load();
+        const next = !current.devMode;
+        await browser.storage.local.set({
+          [window.ConvertigoSettings.STORAGE_KEY]: Object.assign({}, current, { devMode: next })
+        });
+        const orig = h1.textContent;
+        h1.textContent = next ? 'DEV MODE ON' : 'DEV MODE OFF';
+        setTimeout(() => { h1.textContent = orig; }, 1500);
       }
     });
 
