@@ -119,16 +119,12 @@
       if (e.ctrlKey && e.altKey && e.shiftKey) {
         devUnlocked = true;
         devSection.style.display = '';
-        requestAnimationFrame(() => {
-          window.resizeTo(window.outerWidth, document.body.scrollHeight + (window.outerHeight - window.innerHeight));
-        });
       }
     });
     document.addEventListener('keyup', () => {
       if (devUnlocked && !devSection.querySelector('#dev-mode').checked) {
         devUnlocked = false;
         devSection.style.display = 'none';
-        window.resizeTo(window.outerWidth, document.body.scrollHeight + (window.outerHeight - window.innerHeight));
       }
     });
 
