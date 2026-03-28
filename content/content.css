@@ -67,7 +67,7 @@
   color: #7a7a9a !important;
   margin-bottom: 8px !important;
   display: block !important;
-  padding-right: 44px !important;
+  padding-right: 64px !important;
 }
 
 #unit-converter-popup .uc-btn-group {
@@ -80,7 +80,8 @@
 }
 
 #unit-converter-popup .uc-close,
-#unit-converter-popup .uc-copy-test {
+#unit-converter-popup .uc-copy-test,
+#unit-converter-popup .uc-feedback-btn {
   background: none !important;
   border: none !important;
   color: #7a7a9a !important;
@@ -104,8 +105,13 @@
   font-family: monospace !important;
 }
 
+#unit-converter-popup .uc-feedback-btn {
+  font-size: 12px !important;
+}
+
 #unit-converter-popup .uc-close:hover,
-#unit-converter-popup .uc-copy-test:hover {
+#unit-converter-popup .uc-copy-test:hover,
+#unit-converter-popup .uc-feedback-btn:hover {
   color: #e0e0e0 !important;
   background: rgba(255,255,255,0.1) !important;
 }
@@ -208,4 +214,209 @@
   color: #4a4a6a !important;
   margin-top: 4px !important;
   font-style: italic !important;
+}
+
+/* ── Feedback modal ─────────────────────────────────────────────────────── */
+
+#uc-feedback-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(0, 0, 0, 0.6) !important;
+  z-index: 2147483647 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+#uc-feedback-overlay .uc-feedback-modal {
+  background: #1a1a2e !important;
+  color: #e0e0e0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08) !important;
+  width: 520px !important;
+  max-width: calc(100vw - 32px) !important;
+  max-height: 85vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  animation: uc-fadein 0.15s ease !important;
+}
+
+#uc-feedback-overlay .uc-feedback-header {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #e0e0e0 !important;
+  padding: 12px 16px 10px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+  flex-shrink: 0 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+
+#uc-feedback-overlay .uc-feedback-body {
+  padding: 12px 16px 14px !important;
+  overflow-y: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+
+#uc-feedback-overlay .uc-feedback-field {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+
+#uc-feedback-overlay .uc-feedback-field-label {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: #7a7a9a !important;
+}
+
+#uc-feedback-overlay .uc-feedback-value {
+  background: rgba(255,255,255,0.05) !important;
+  border-radius: 4px !important;
+  padding: 6px 8px !important;
+  font-size: 12px !important;
+  color: #e0e0e0 !important;
+  word-break: break-word !important;
+  line-height: 1.4 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+
+#uc-feedback-overlay .uc-feedback-html {
+  font-family: monospace !important;
+  font-size: 11px !important;
+  max-height: 80px !important;
+  overflow-y: auto !important;
+  white-space: pre-wrap !important;
+}
+
+#uc-feedback-overlay .uc-feedback-url-display {
+  font-size: 11px !important;
+  color: #9898b8 !important;
+  word-break: break-all !important;
+}
+
+#uc-feedback-overlay .uc-feedback-checkbox-label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-size: 12px !important;
+  color: #e0e0e0 !important;
+  cursor: pointer !important;
+  user-select: none !important;
+}
+
+#uc-feedback-overlay .uc-feedback-checkbox {
+  cursor: pointer !important;
+  accent-color: #a8e6cf !important;
+}
+
+#uc-feedback-overlay .uc-feedback-desc {
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 4px !important;
+  color: #e0e0e0 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  padding: 6px 8px !important;
+  resize: vertical !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  min-height: 56px !important;
+}
+
+#uc-feedback-overlay .uc-feedback-desc:focus {
+  outline: none !important;
+  border-color: rgba(168, 230, 207, 0.4) !important;
+}
+
+#uc-feedback-overlay .uc-feedback-desc::placeholder {
+  color: #4a4a6a !important;
+}
+
+#uc-feedback-overlay .uc-feedback-divider {
+  height: 1px !important;
+  background: rgba(255,255,255,0.08) !important;
+}
+
+#uc-feedback-overlay .uc-feedback-preview {
+  background: rgba(255,255,255,0.04) !important;
+  border-radius: 4px !important;
+  padding: 6px 8px !important;
+  font-family: monospace !important;
+  font-size: 11px !important;
+  color: #9898b8 !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  max-height: 140px !important;
+  overflow-y: auto !important;
+  margin: 0 !important;
+  line-height: 1.4 !important;
+}
+
+#uc-feedback-overlay .uc-feedback-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding-top: 2px !important;
+}
+
+#uc-feedback-overlay .uc-feedback-cancel,
+#uc-feedback-overlay .uc-feedback-send {
+  border: none !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 5px 14px !important;
+  transition: opacity 0.15s !important;
+  line-height: 1.4 !important;
+}
+
+#uc-feedback-overlay .uc-feedback-cancel {
+  background: rgba(255,255,255,0.08) !important;
+  color: #9898b8 !important;
+}
+
+#uc-feedback-overlay .uc-feedback-cancel:hover {
+  background: rgba(255,255,255,0.13) !important;
+  color: #e0e0e0 !important;
+}
+
+#uc-feedback-overlay .uc-feedback-send {
+  background: #a8e6cf !important;
+  color: #1a1a2e !important;
+}
+
+#uc-feedback-overlay .uc-feedback-send:hover {
+  opacity: 0.85 !important;
+}
+
+#uc-feedback-overlay .uc-feedback-send:disabled {
+  opacity: 0.5 !important;
+  cursor: default !important;
+}
+
+#uc-feedback-overlay .uc-feedback-status {
+  font-size: 12px !important;
+  color: #9898b8 !important;
+  font-style: italic !important;
+}
+
+#uc-feedback-overlay .uc-feedback-status-ok {
+  color: #a8e6cf !important;
+  font-style: normal !important;
+}
+
+#uc-feedback-overlay .uc-feedback-status-error {
+  color: #f5c842 !important;
+  font-style: normal !important;
 }

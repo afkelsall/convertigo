@@ -77,18 +77,44 @@
 
   // Respond to content script requests for rates
   browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    if (msg.type !== 'getRates') return;
-
-    if (cachedRates && fetchedDate === todayUTC()) {
-      sendResponse({ rates: cachedRates, date: cacheDate });
-      return;
+    if (msg.type === 'getRates') {
+      if (cachedRates && fetchedDate === todayUTC()) {
+        sendResponse({ rates: cachedRates, date: cacheDate });
+        return;
+      }
+      // Need to fetch (async response)
+      fetchRates().then(sendResponse);
+      return true; // Keep message channel open for async response
     }
 
-    // Need to fetch (async response)
-    fetchRates().then(sendResponse);
-    return true; // Keep message channel open for async response
+    if (msg.type === 'sendFeedback') {
+      fetch('https://api.emailjs.com/api/v1.0/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(msg.payload)
+      }).then(r => sendResponse({ ok: r.ok, status: r.status }))
+        .catch(e => sendResponse({ ok: false, error: e.message }));
+      return true; // Keep message channel open for async response
+    }
   });
 
   // Load rates on startup
   loadRates();
 })();
+
+// ── Feedback context menu ──────────────────────────────────────────────────
+
+browser.menus.create({
+  id: 'convertigo-feedback',
+  title: 'Convertigo: Report conversion issue',
+  contexts: ['selection']
+});
+
+browser.menus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === 'convertigo-feedback') {
+    browser.tabs.sendMessage(tab.id, {
+      type: 'openFeedbackModal',
+      selectionText: info.selectionText
+    });
+  }
+});

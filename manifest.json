@@ -15,7 +15,7 @@
       }
     }
   },
-  "permissions": ["storage"],
+  "permissions": ["storage", "menus"],
   "browser_action": {
     "default_title": "Convertigo",
     "default_popup": "options/options.html"

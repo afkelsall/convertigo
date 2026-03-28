@@ -3,6 +3,9 @@
   const POPUP_ID = 'unit-converter-popup';
   const CURRENCY_SECTION_CLASS = 'uc-currency-section';
   const RECONSTRUCTED_CLASS = 'uc-reconstructed';
+  const EMAILJS_PUBLIC_KEY = '0E2OQG346dXRcEVvs';
+  const EMAILJS_SERVICE_ID = 'service_ti37pko';
+  const EMAILJS_TEMPLATE_ID = 'template_bjtngpd';
   let keyDebounce = null;
   let scanQueue = [];
   let scanIdleId = null;
@@ -23,6 +26,16 @@
   function removePopup() {
     const existing = document.getElementById(POPUP_ID);
     if (existing) existing.remove();
+  }
+
+  function getSelectionHtml() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return '';
+    const range = sel.getRangeAt(0);
+    const fragment = range.cloneContents();
+    const container = document.createElement('div');
+    container.appendChild(fragment);
+    return container.innerHTML;
   }
 
   // Replace each matched measurement in the original text with its converted equivalent
@@ -141,6 +154,16 @@
 
     const btnGroup = document.createElement('div');
     btnGroup.className = 'uc-btn-group';
+
+    const feedbackBtn = document.createElement('button');
+    feedbackBtn.className = 'uc-feedback-btn';
+    feedbackBtn.textContent = '✉';
+    feedbackBtn.title = 'Report conversion issue';
+    feedbackBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openFeedbackModal(selectedText, getSelectionHtml());
+    });
+    btnGroup.appendChild(feedbackBtn);
 
     const copyTestBtn = document.createElement('button');
     copyTestBtn.className = 'uc-copy-test';
@@ -760,6 +783,217 @@
   });
 
   window.addEventListener('blur', deactivateReplace);
+
+  // ── Feedback modal ─────────────────────────────────────────────────────────
+
+  function buildFeedbackEmailBody(selectedText, selectionHtml, includeUrl, pageUrl, description) {
+    let body = 'Selected text:\n' + selectedText + '\n\n';
+    body += 'Selection HTML:\n' + selectionHtml + '\n\n';
+    if (includeUrl && pageUrl) {
+      body += 'Page URL:\n' + pageUrl + '\n\n';
+    }
+    if (description.trim()) {
+      body += 'Description:\n' + description.trim() + '\n\n';
+    }
+    body += '---\nConvertigo v' + browser.runtime.getManifest().version;
+    return body;
+  }
+
+  function openFeedbackModal(selectedText, selectionHtml) {
+    const existingOverlay = document.getElementById('uc-feedback-overlay');
+    if (existingOverlay) existingOverlay.remove();
+    removePopup();
+
+    const htmlDisplay = selectionHtml.length > 5000
+      ? selectionHtml.slice(0, 5000) + '\n… (truncated)'
+      : selectionHtml;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'uc-feedback-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'uc-feedback-modal';
+
+    const header = document.createElement('div');
+    header.className = 'uc-feedback-header';
+    header.textContent = 'Report Conversion Issue';
+    modal.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'uc-feedback-body';
+
+    // Selected text
+    const textField = document.createElement('div');
+    textField.className = 'uc-feedback-field';
+    const textLabel = document.createElement('div');
+    textLabel.className = 'uc-feedback-field-label';
+    textLabel.textContent = 'Selected text:';
+    const textValue = document.createElement('div');
+    textValue.className = 'uc-feedback-value';
+    textValue.textContent = selectedText || '(no text selected)';
+    textField.appendChild(textLabel);
+    textField.appendChild(textValue);
+    body.appendChild(textField);
+
+    // Selection HTML
+    const htmlField = document.createElement('div');
+    htmlField.className = 'uc-feedback-field';
+    const htmlLabel = document.createElement('div');
+    htmlLabel.className = 'uc-feedback-field-label';
+    htmlLabel.textContent = 'Selection HTML:';
+    const htmlValue = document.createElement('div');
+    htmlValue.className = 'uc-feedback-value uc-feedback-html';
+    htmlValue.textContent = htmlDisplay || '(no HTML)';
+    htmlField.appendChild(htmlLabel);
+    htmlField.appendChild(htmlValue);
+    body.appendChild(htmlField);
+
+    // Include page URL checkbox (default off)
+    const urlField = document.createElement('div');
+    urlField.className = 'uc-feedback-field';
+    const urlCheckboxLabel = document.createElement('label');
+    urlCheckboxLabel.className = 'uc-feedback-checkbox-label';
+    const urlCheckbox = document.createElement('input');
+    urlCheckbox.type = 'checkbox';
+    urlCheckbox.className = 'uc-feedback-checkbox';
+    urlCheckboxLabel.appendChild(urlCheckbox);
+    urlCheckboxLabel.appendChild(document.createTextNode(' Include page URL'));
+    const urlDisplay = document.createElement('div');
+    urlDisplay.className = 'uc-feedback-value uc-feedback-url-display';
+    urlDisplay.style.cssText = 'display:none';
+    urlField.appendChild(urlCheckboxLabel);
+    urlField.appendChild(urlDisplay);
+    body.appendChild(urlField);
+
+    // Description (optional)
+    const descField = document.createElement('div');
+    descField.className = 'uc-feedback-field';
+    const descLabel = document.createElement('div');
+    descLabel.className = 'uc-feedback-field-label';
+    descLabel.textContent = 'Description (optional):';
+    const descTextarea = document.createElement('textarea');
+    descTextarea.className = 'uc-feedback-desc';
+    descTextarea.placeholder = 'Only needed if it requires more context than the selected text above';
+    descTextarea.rows = 3;
+    descField.appendChild(descLabel);
+    descField.appendChild(descTextarea);
+    body.appendChild(descField);
+
+    // Divider + email preview
+    const divider = document.createElement('div');
+    divider.className = 'uc-feedback-divider';
+    body.appendChild(divider);
+
+    const previewLabel = document.createElement('div');
+    previewLabel.className = 'uc-feedback-field-label';
+    previewLabel.textContent = 'Email preview:';
+    body.appendChild(previewLabel);
+
+    const previewEl = document.createElement('pre');
+    previewEl.className = 'uc-feedback-preview';
+    body.appendChild(previewEl);
+
+    // Actions
+    const actions = document.createElement('div');
+    actions.className = 'uc-feedback-actions';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'uc-feedback-cancel';
+    cancelBtn.textContent = 'Cancel';
+    const sendBtn = document.createElement('button');
+    sendBtn.className = 'uc-feedback-send';
+    sendBtn.textContent = 'Send';
+    const statusEl = document.createElement('span');
+    statusEl.className = 'uc-feedback-status';
+    actions.appendChild(cancelBtn);
+    actions.appendChild(sendBtn);
+    actions.appendChild(statusEl);
+    body.appendChild(actions);
+
+    modal.appendChild(body);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    let pageUrl = '';
+
+    function rebuildPreview() {
+      previewEl.textContent = buildFeedbackEmailBody(
+        selectedText, htmlDisplay, urlCheckbox.checked, pageUrl, descTextarea.value
+      );
+    }
+
+    rebuildPreview();
+
+    function closeModal() {
+      document.removeEventListener('keydown', escHandler);
+      overlay.remove();
+    }
+
+    function escHandler(e) {
+      if (e.key === 'Escape') closeModal();
+    }
+
+    urlCheckbox.addEventListener('change', () => {
+      if (urlCheckbox.checked) {
+        pageUrl = window.location.href;
+        urlDisplay.textContent = pageUrl;
+        urlDisplay.style.cssText = '';
+      } else {
+        pageUrl = '';
+        urlDisplay.style.cssText = 'display:none';
+      }
+      rebuildPreview();
+    });
+
+    descTextarea.addEventListener('input', rebuildPreview);
+    cancelBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+    document.addEventListener('keydown', escHandler);
+
+    sendBtn.addEventListener('click', async () => {
+      sendBtn.disabled = true;
+      statusEl.textContent = 'Sending…';
+      statusEl.className = 'uc-feedback-status';
+
+      const selectionHtmlToSend = selectionHtml.length > 5000
+        ? selectionHtml.slice(0, 5000) + ' (truncated)'
+        : selectionHtml;
+
+      const payload = {
+        service_id: EMAILJS_SERVICE_ID,
+        template_id: EMAILJS_TEMPLATE_ID,
+        user_id: EMAILJS_PUBLIC_KEY,
+        template_params: {
+          selected_text: selectedText,
+          selection_html: selectionHtmlToSend,
+          page_url: urlCheckbox.checked ? pageUrl : '(not included)',
+          description: descTextarea.value.trim() || '(none)',
+          extension_version: browser.runtime.getManifest().version
+        }
+      };
+
+      try {
+        const result = await browser.runtime.sendMessage({ type: 'sendFeedback', payload });
+        if (result && result.ok) {
+          statusEl.textContent = '✓ Sent!';
+          statusEl.className = 'uc-feedback-status uc-feedback-status-ok';
+          setTimeout(closeModal, 1500);
+        } else {
+          throw new Error(result && result.error ? result.error : 'HTTP ' + (result && result.status));
+        }
+      } catch (err) {
+        statusEl.textContent = 'Error: ' + err.message;
+        statusEl.className = 'uc-feedback-status uc-feedback-status-error';
+        sendBtn.disabled = false;
+      }
+    });
+  }
+
+  // Context menu message handler
+  browser.runtime.onMessage.addListener((msg) => {
+    if (msg.type === 'openFeedbackModal') {
+      openFeedbackModal(msg.selectionText || '', getSelectionHtml());
+    }
+  });
 
   // ── Page-scan startup ──────────────────────────────────────────────────────
 
