@@ -119,12 +119,14 @@
       if (e.ctrlKey && e.altKey && e.shiftKey) {
         devUnlocked = true;
         devSection.style.display = '';
+        document.body.style.minHeight = document.body.scrollHeight + 'px';
       }
     });
     document.addEventListener('keyup', () => {
       if (devUnlocked && !devSection.querySelector('#dev-mode').checked) {
         devUnlocked = false;
         devSection.style.display = 'none';
+        document.body.style.minHeight = '';
       }
     });
 
