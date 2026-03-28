@@ -100,6 +100,9 @@ function processTextNode(textNode, currencyParseOpts) {
 }
 
 function processBlockElement(blockEl, currencyParseOpts) {
+  if (!blockEl.isConnected) return;
+  if (blockEl.dataset.ucScanned) return;
+
   const textNodes = [];
   const walker = document.createTreeWalker(blockEl, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
@@ -114,6 +117,8 @@ function processBlockElement(blockEl, currencyParseOpts) {
   });
   let n;
   while ((n = walker.nextNode())) textNodes.push(n);
+
+  blockEl.dataset.ucScanned = '1';
   if (textNodes.length === 0) return;
 
   let fullText = '';
@@ -569,6 +574,212 @@ for (const span of splitContainer.querySelectorAll('.uc-highlight')) {
   }
 }
 
+// ---------- Dynamic update (mutation) simulation tests ----------
+// These test the fix for highlights disappearing when page values update dynamically
+// (e.g. FlightAware speed/altitude). Mirrors the mutation observer logic in content.js.
+
+const MUT_BLOCK_TAGS = new Set([
+  'ADDRESS','ARTICLE','ASIDE','BLOCKQUOTE','BODY','DD','DETAILS','DIALOG',
+  'DIV','DL','DT','FIELDSET','FIGCAPTION','FIGURE','FOOTER','FORM',
+  'H1','H2','H3','H4','H5','H6','HEADER','HGROUP','HR','LI','MAIN',
+  'NAV','OL','P','PRE','SECTION','SUMMARY','TABLE','TBODY','TD','TFOOT',
+  'TH','THEAD','TR','UL'
+]);
+
+function getBlockAncestorForMut(node) {
+  let el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+  while (el) {
+    if (MUT_BLOCK_TAGS.has(el.tagName)) return el;
+    el = el.parentElement;
+  }
+  return document.body;
+}
+
+// Mirrors the characterData branch of the mutation handler in content.js
+function simCharacterData(textNode, opts) {
+  const el = textNode.parentElement;
+  if (!el) return;
+  const staleSpan = el.classList.contains('uc-highlight') ? el : null;
+  if (staleSpan) {
+    const block = getBlockAncestorForMut(staleSpan);
+    const rescanRoot = block || staleSpan.parentElement;
+    staleSpan.replaceWith(document.createTextNode(staleSpan.textContent));
+    if (rescanRoot) {
+      delete rescanRoot.dataset.ucScanned;
+      processBlockElement(rescanRoot, opts);
+    }
+  } else {
+    const block = getBlockAncestorForMut(el);
+    if (block) delete block.dataset.ucScanned;
+    processBlockElement(block || el, opts);
+  }
+}
+
+// Mirrors the TEXT_NODE addedNodes branch of the mutation handler in content.js
+function simTextNodeAdded(textNode, opts) {
+  const parent = textNode.parentElement;
+  if (!parent) return;
+  if (parent.classList.contains('uc-highlight')) {
+    const block = getBlockAncestorForMut(parent);
+    const rescanRoot = block || parent.parentElement;
+    parent.replaceWith(document.createTextNode(parent.textContent));
+    if (rescanRoot) {
+      delete rescanRoot.dataset.ucScanned;
+      processBlockElement(rescanRoot, opts);
+    }
+  } else {
+    const block = getBlockAncestorForMut(parent);
+    if (block) delete block.dataset.ucScanned;
+    processBlockElement(block || parent, opts);
+  }
+}
+
+// Mirrors the ELEMENT_NODE addedNodes branch of the mutation handler in content.js
+function simElementAdded(element, opts) {
+  const block = getBlockAncestorForMut(element);
+  if (block) delete block.dataset.ucScanned;
+  processBlockElement(block || element, opts);
+}
+
+const mutOpts = { dollarCurrency: 'USD', targetCurrency: 'AUD' };
+const mutContainer = document.createElement('div');
+document.body.appendChild(mutContainer);
+
+let mutPassed = 0, mutFailed = 0;
+const mutFailures = [];
+
+function mutCheck(desc, ok) {
+  if (ok) { mutPassed++; } else { mutFailed++; mutFailures.push(desc); }
+}
+
+// T1: characterData inside span — framework mutates textNode.nodeValue directly
+// (React-style: holds a reference to the text node and updates it in place)
+{
+  const p = document.createElement('p');
+  p.textContent = '130 mph';
+  mutContainer.appendChild(p);
+  processBlockElement(p, mutOpts);
+  const span = p.querySelector('.uc-highlight');
+  mutCheck('T1: initial highlight for "130 mph"',
+    span !== null && span.dataset.ucOriginal === '130 mph');
+
+  if (span && span.firstChild) {
+    span.firstChild.nodeValue = '135 mph';          // page mutates text node in-place
+    simCharacterData(span.firstChild, mutOpts);
+    const updated = p.querySelector('.uc-highlight');
+    mutCheck('T1: re-highlighted with updated value "135 mph"',
+      updated !== null && updated.dataset.ucOriginal === '135 mph');
+    mutCheck('T1: stale span with old ucOriginal is gone',
+      p.querySelector('[data-uc-original="130 mph"]') === null);
+  }
+}
+
+// T2: textContent replacement — page sets element.textContent, destroying our span
+{
+  const p = document.createElement('p');
+  p.textContent = '2,200 ft';
+  mutContainer.appendChild(p);
+  processBlockElement(p, mutOpts);
+  mutCheck('T2: initial highlight for "2,200 ft"',
+    p.querySelector('.uc-highlight') !== null);
+
+  p.textContent = '2,400 ft';                       // destroys span, adds text node
+  simTextNodeAdded(p.firstChild, mutOpts);
+  const updated = p.querySelector('.uc-highlight');
+  mutCheck('T2: re-highlighted after textContent replacement',
+    updated !== null && updated.dataset.ucOriginal === '2,400 ft');
+}
+
+// T3: initially empty block — scan marks it scanned, then value arrives
+{
+  const p = document.createElement('p');
+  p.textContent = '';
+  mutContainer.appendChild(p);
+  processBlockElement(p, mutOpts);
+  mutCheck('T3: no highlights in empty block',
+    p.querySelectorAll('.uc-highlight').length === 0);
+  mutCheck('T3: ucScanned set on empty block so duplicate scans are skipped',
+    p.dataset.ucScanned === '1');
+
+  p.textContent = '130 mph';                        // data arrives late
+  simTextNodeAdded(p.firstChild, mutOpts);
+  const span = p.querySelector('.uc-highlight');
+  mutCheck('T3: highlight created after value arrives in empty block',
+    span !== null && span.dataset.ucOriginal === '130 mph');
+}
+
+// T4: element replacement — page removes old element and inserts a new one
+{
+  const td = document.createElement('td');
+  const inner = document.createElement('span');
+  inner.textContent = '130 mph';
+  td.appendChild(inner);
+  mutContainer.appendChild(td);
+  processBlockElement(td, mutOpts);
+  mutCheck('T4: initial highlight inside replaced element',
+    td.querySelector('.uc-highlight') !== null);
+
+  td.textContent = '';                              // remove all children (including highlight)
+  const newInner = document.createElement('span');
+  newInner.textContent = '140 mph';
+  td.appendChild(newInner);
+  simElementAdded(newInner, mutOpts);
+  const updated = td.querySelector('.uc-highlight');
+  mutCheck('T4: re-highlighted after element replacement',
+    updated !== null && updated.dataset.ucOriginal === '140 mph');
+}
+
+// T5: value changes to non-convertible text — highlight not re-created
+{
+  const p = document.createElement('p');
+  p.textContent = '130 mph';
+  mutContainer.appendChild(p);
+  processBlockElement(p, mutOpts);
+  mutCheck('T5: initial highlight for "130 mph"',
+    p.querySelector('.uc-highlight') !== null);
+
+  p.textContent = '—';
+  simTextNodeAdded(p.firstChild, mutOpts);
+  mutCheck('T5: no highlight after value changes to non-unit text',
+    p.querySelectorAll('.uc-highlight').length === 0);
+}
+
+// T6: multiple sequential updates — highlights track latest value
+{
+  const p = document.createElement('p');
+  p.textContent = '100 mph';
+  mutContainer.appendChild(p);
+  processBlockElement(p, mutOpts);
+
+  p.textContent = '110 mph';
+  simTextNodeAdded(p.firstChild, mutOpts);
+  p.textContent = '120 mph';
+  simTextNodeAdded(p.firstChild, mutOpts);
+
+  const spans = p.querySelectorAll('.uc-highlight');
+  mutCheck('T6: exactly one highlight after two sequential updates',
+    spans.length === 1);
+  mutCheck('T6: highlight reflects latest value "120 mph"',
+    spans[0] && spans[0].dataset.ucOriginal === '120 mph');
+}
+
+// T7: characterData on text node NOT inside a span — plain re-scan
+{
+  const p = document.createElement('p');
+  p.textContent = 'Loading...';
+  mutContainer.appendChild(p);
+  processBlockElement(p, mutOpts);
+  mutCheck('T7: no highlights for "Loading..."',
+    p.querySelectorAll('.uc-highlight').length === 0);
+
+  // Simulate: text node changes to a real value (not inside a span)
+  p.firstChild.nodeValue = '55 mph';
+  simCharacterData(p.firstChild, mutOpts);
+  const span = p.querySelector('.uc-highlight');
+  mutCheck('T7: highlight created after characterData on plain text node',
+    span !== null && span.dataset.ucOriginal === '55 mph');
+}
+
 // ---------- Report ----------
 const total = unitFixtures.length + currencyFixtures.length;
 console.log(`\nScan detection:      ${scanPassed} passed, ${scanFailed} failed, ${total} total`);
@@ -577,7 +788,8 @@ console.log(`Restore deactivate:  ${restorePassed} passed, ${restoreFailed} fail
 console.log(`Mixed dedup tests:   ${mixedPassed} passed, ${mixedFailed} failed, ${mixedPassed + mixedFailed} total`);
 console.log(`Split-tag detection: ${splitScanPassed} passed, ${splitScanFailed} failed, ${splitFixtures.length} total`);
 console.log(`Split-tag replace:   ${splitReplacePassed} passed, ${splitReplaceFailed} failed, ${splitFixtures.length} total`);
-console.log(`Split-tag restore:   ${splitRestorePassed} passed, ${splitRestoreFailed} failed (per-span)\n`);
+console.log(`Split-tag restore:   ${splitRestorePassed} passed, ${splitRestoreFailed} failed (per-span)`);
+console.log(`Dynamic update:      ${mutPassed} passed, ${mutFailed} failed, ${mutPassed + mutFailed} total\n`);
 
 for (const f of scanFailures) {
   const note = f.note ? ` [${f.note}]` : '';
@@ -625,8 +837,13 @@ for (const f of splitRestoreFailures) {
 }
 if (splitRestoreFailures.length) console.log();
 
+for (const msg of mutFailures) {
+  console.log(`FAIL (dynamic update): ${msg}`);
+}
+if (mutFailures.length) console.log();
+
 const anyFailed = scanFailed > 0 || replaceFailed > 0 || restoreFailed > 0 || mixedFailed > 0 ||
-                  splitScanFailed > 0 || splitReplaceFailed > 0 || splitRestoreFailed > 0;
+                  splitScanFailed > 0 || splitReplaceFailed > 0 || splitRestoreFailed > 0 || mutFailed > 0;
 if (!anyFailed) {
   console.log('All DOM toggle tests passed.');
 }

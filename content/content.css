@@ -39,6 +39,7 @@
 
 /* Highlight spans for detected values on page */
 .uc-highlight {
+  display: inline !important;
   border-bottom: 1px dotted rgba(80, 180, 140, 1.0) !important;
 }
 

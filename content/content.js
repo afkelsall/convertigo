@@ -778,17 +778,60 @@
       ucObserver = new MutationObserver((mutations) => {
         clearTimeout(mutationDebounce);
         mutationDebounce = setTimeout(() => {
-          for (const m of mutations)
-            for (const node of m.addedNodes)
-              if (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('uc-highlight')) {
-                // Clear scanned flag on ancestor block so new inline content triggers re-scan
+          for (const m of mutations) {
+            if (m.type === 'characterData') {
+              const el = m.target.parentElement;
+              if (!el) continue;
+              // If a text node inside our span changed (e.g. React mutates text node directly),
+              // the span now wraps stale original text — unwrap it so the block can be re-scanned
+              const staleSpan = el.classList.contains('uc-highlight') ? el
+                : (el.closest ? el.closest('.uc-highlight') : null);
+              if (staleSpan) {
+                const block = getBlockAncestor(staleSpan);
+                const rescanRoot = block || staleSpan.parentElement;
+                staleSpan.replaceWith(document.createTextNode(staleSpan.textContent));
+                if (rescanRoot) {
+                  delete rescanRoot.dataset.ucScanned;
+                  enqueueSubtree(rescanRoot);
+                }
+              } else if (!isSkippableNode(el)) {
+                const block = getBlockAncestor(el);
+                if (block) delete block.dataset.ucScanned;
+                enqueueSubtree(block || el);
+              }
+              continue;
+            }
+            for (const node of m.addedNodes) {
+              if (node.nodeType === Node.TEXT_NODE) {
+                const parent = node.parentElement;
+                if (!parent) continue;
+                if (parent.classList.contains('uc-highlight')) {
+                  // Page set .textContent on our span's parent, replacing our span with a text
+                  // node — unwrap the stale span
+                  const block = getBlockAncestor(parent);
+                  const rescanRoot = block || parent.parentElement;
+                  parent.replaceWith(document.createTextNode(parent.textContent));
+                  if (rescanRoot) {
+                    delete rescanRoot.dataset.ucScanned;
+                    enqueueSubtree(rescanRoot);
+                  }
+                } else if (!isSkippableNode(parent)) {
+                  // Plain text node added (e.g. page set .textContent replacing our span)
+                  const block = getBlockAncestor(parent);
+                  if (block) delete block.dataset.ucScanned;
+                  enqueueSubtree(block || parent);
+                }
+              } else if (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('uc-highlight')) {
+                // New element added — clear scanned flag so its block gets re-scanned
                 const block = getBlockAncestor(node);
-                if (block && block.dataset.ucScanned) delete block.dataset.ucScanned;
+                if (block) delete block.dataset.ucScanned;
                 enqueueSubtree(node);
               }
+            }
+          }
         }, 200);
       });
-      ucObserver.observe(document.body, { childList: true, subtree: true });
+      ucObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
     }
   }
 
