@@ -130,6 +130,14 @@
       applySettings(window.ConvertigoSettings.DEFAULTS);
       showSaved();
     });
+
+    document.getElementById('feedback-btn').addEventListener('click', async () => {
+      const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+      if (tabs[0]) {
+        browser.tabs.sendMessage(tabs[0].id, { type: 'openFeedbackModal', selectionText: '' }).catch(() => {});
+      }
+      window.close();
+    });
   }
 
   init();

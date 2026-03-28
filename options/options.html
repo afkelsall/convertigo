@@ -169,6 +169,26 @@
       color: #e0e0e0;
       border-color: rgba(255,255,255,0.25);
     }
+
+    #feedback-btn {
+      display: block;
+      width: 100%;
+      margin-top: 6px;
+      padding: 6px 0;
+      background: none;
+      border: 1px solid rgba(168,230,207,0.2);
+      border-radius: 5px;
+      color: #a8e6cf;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+
+    #feedback-btn:hover {
+      background: rgba(168,230,207,0.07);
+      border-color: rgba(168,230,207,0.4);
+    }
   </style>
 </head>
 <body>
@@ -235,6 +255,8 @@
   <div id="saved-indicator">✓ Saved</div>
 
   <button id="reset-btn">Reset to defaults</button>
+
+  <button id="feedback-btn">Report conversion issue</button>
 
   <script src="../lib/settings.js"></script>
   <script src="options.js"></script>
