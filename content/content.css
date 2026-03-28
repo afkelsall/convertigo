@@ -262,6 +262,13 @@
   gap: 10px !important;
 }
 
+#uc-feedback-overlay .uc-feedback-hint {
+  font-size: 12px !important;
+  color: #9898b8 !important;
+  line-height: 1.5 !important;
+  padding: 4px 0 !important;
+}
+
 #uc-feedback-overlay .uc-feedback-field {
   display: flex !important;
   flex-direction: column !important;

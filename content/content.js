@@ -816,39 +816,49 @@
     const modal = document.createElement('div');
     modal.className = 'uc-feedback-modal';
 
+    const isGeneral = !selectedText;
+
     const header = document.createElement('div');
     header.className = 'uc-feedback-header';
-    header.textContent = 'Report Conversion Issue';
+    header.textContent = isGeneral ? 'Send Feedback' : 'Report Conversion Issue';
     modal.appendChild(header);
 
     const body = document.createElement('div');
     body.className = 'uc-feedback-body';
 
-    // Selected text
-    const textField = document.createElement('div');
-    textField.className = 'uc-feedback-field';
-    const textLabel = document.createElement('div');
-    textLabel.className = 'uc-feedback-field-label';
-    textLabel.textContent = 'Selected text:';
-    const textValue = document.createElement('div');
-    textValue.className = 'uc-feedback-value';
-    textValue.textContent = selectedText || '(no text selected)';
-    textField.appendChild(textLabel);
-    textField.appendChild(textValue);
-    body.appendChild(textField);
+    if (isGeneral) {
+      // General feedback: show guidance instead of empty text/HTML fields
+      const hint = document.createElement('div');
+      hint.className = 'uc-feedback-hint';
+      hint.textContent = 'To report a specific conversion issue, select the text on the page and use right-click → Convertigo: Report conversion issue.';
+      body.appendChild(hint);
+    } else {
+      // Selected text
+      const textField = document.createElement('div');
+      textField.className = 'uc-feedback-field';
+      const textLabel = document.createElement('div');
+      textLabel.className = 'uc-feedback-field-label';
+      textLabel.textContent = 'Selected text:';
+      const textValue = document.createElement('div');
+      textValue.className = 'uc-feedback-value';
+      textValue.textContent = selectedText;
+      textField.appendChild(textLabel);
+      textField.appendChild(textValue);
+      body.appendChild(textField);
 
-    // Selection HTML
-    const htmlField = document.createElement('div');
-    htmlField.className = 'uc-feedback-field';
-    const htmlLabel = document.createElement('div');
-    htmlLabel.className = 'uc-feedback-field-label';
-    htmlLabel.textContent = 'Selection HTML:';
-    const htmlValue = document.createElement('div');
-    htmlValue.className = 'uc-feedback-value uc-feedback-html';
-    htmlValue.textContent = htmlDisplay || '(no HTML)';
-    htmlField.appendChild(htmlLabel);
-    htmlField.appendChild(htmlValue);
-    body.appendChild(htmlField);
+      // Selection HTML
+      const htmlField = document.createElement('div');
+      htmlField.className = 'uc-feedback-field';
+      const htmlLabel = document.createElement('div');
+      htmlLabel.className = 'uc-feedback-field-label';
+      htmlLabel.textContent = 'Selection HTML:';
+      const htmlValue = document.createElement('div');
+      htmlValue.className = 'uc-feedback-value uc-feedback-html';
+      htmlValue.textContent = htmlDisplay;
+      htmlField.appendChild(htmlLabel);
+      htmlField.appendChild(htmlValue);
+      body.appendChild(htmlField);
+    }
 
     // Include page URL checkbox (default off)
     const urlField = document.createElement('div');
@@ -875,7 +885,9 @@
     descLabel.textContent = 'Description (optional):';
     const descTextarea = document.createElement('textarea');
     descTextarea.className = 'uc-feedback-desc';
-    descTextarea.placeholder = 'Only needed if it requires more context than the selected text above';
+    descTextarea.placeholder = isGeneral
+      ? 'Describe your feedback or issue'
+      : 'Only needed if it requires more context than the selected text above';
     descTextarea.rows = 3;
     descField.appendChild(descLabel);
     descField.appendChild(descTextarea);
