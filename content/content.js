@@ -165,32 +165,34 @@
     });
     btnGroup.appendChild(feedbackBtn);
 
-    const copyTestBtn = document.createElement('button');
-    copyTestBtn.className = 'uc-copy-test';
-    copyTestBtn.textContent = '{}';
-    copyTestBtn.title = 'Copy as test JSON';
-    copyTestBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const seen = new Set();
-      const expected = [];
-      conversions.forEach(({ original, convResult }) => {
-        if (!convResult || seen.has(original)) return;
-        seen.add(original);
-        convResult.forEach(conv => {
-          const label = conv.label ? ' (' + conv.label + ')' : '';
-          expected.push(original + ' \u2192 ' + conv.formatted + label);
+    if (settings.devMode) {
+      const copyTestBtn = document.createElement('button');
+      copyTestBtn.className = 'uc-copy-test';
+      copyTestBtn.textContent = '{}';
+      copyTestBtn.title = 'Copy as test JSON';
+      copyTestBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const seen = new Set();
+        const expected = [];
+        conversions.forEach(({ original, convResult }) => {
+          if (!convResult || seen.has(original)) return;
+          seen.add(original);
+          convResult.forEach(conv => {
+            const label = conv.label ? ' (' + conv.label + ')' : '';
+            expected.push(original + ' \u2192 ' + conv.formatted + label);
+          });
+        });
+        const json = ',\n  {\n'
+          + '    "input": ' + JSON.stringify(selectedText) + ',\n'
+          + '    "expected": [' + expected.map(e => JSON.stringify(e)).join(', ') + ']\n'
+          + '  }';
+        navigator.clipboard.writeText(json).then(() => {
+          copyTestBtn.textContent = '\u2713';
+          setTimeout(() => { copyTestBtn.textContent = '{}'; }, 1500);
         });
       });
-      const json = ',\n  {\n'
-        + '    "input": ' + JSON.stringify(selectedText) + ',\n'
-        + '    "expected": [' + expected.map(e => JSON.stringify(e)).join(', ') + ']\n'
-        + '  }';
-      navigator.clipboard.writeText(json).then(() => {
-        copyTestBtn.textContent = '\u2713';
-        setTimeout(() => { copyTestBtn.textContent = '{}'; }, 1500);
-      });
-    });
-    btnGroup.appendChild(copyTestBtn);
+      btnGroup.appendChild(copyTestBtn);
+    }
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'uc-close';

@@ -72,6 +72,7 @@
     document.getElementById('page-scan-enabled').checked = settings.pageScanEnabled;
     document.getElementById('replace-key').value = settings.replaceKey;
     document.getElementById('permanent-replace').checked = settings.permanentReplace;
+    document.getElementById('dev-mode').checked = settings.devMode;
   }
 
   function readSettings() {
@@ -84,6 +85,7 @@
       pageScanEnabled: document.getElementById('page-scan-enabled').checked,
       replaceKey: document.getElementById('replace-key').value,
       permanentReplace: document.getElementById('permanent-replace').checked,
+      devMode: document.getElementById('dev-mode').checked,
     };
   }
 
@@ -108,6 +110,22 @@
 
     document.querySelectorAll('select, input[type="radio"], input[type="checkbox"]').forEach(el => {
       el.addEventListener('change', saveSettings);
+    });
+
+    // Reveal dev section only while Ctrl+Alt+Shift are all held
+    const devSection = document.getElementById('dev-section');
+    let devUnlocked = false;
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.altKey && e.shiftKey) {
+        devUnlocked = true;
+        devSection.style.display = '';
+      }
+    });
+    document.addEventListener('keyup', () => {
+      if (devUnlocked && !devSection.querySelector('#dev-mode').checked) {
+        devUnlocked = false;
+        devSection.style.display = 'none';
+      }
     });
 
     document.getElementById('reset-btn').addEventListener('click', async () => {
