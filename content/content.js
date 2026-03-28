@@ -8,6 +8,7 @@
   const EMAILJS_TEMPLATE_ID = 'template_bjtngpd';
   let keyDebounce = null;
   let scanQueue = [];
+  let scanQueueSet = new WeakSet();
   let scanIdleId = null;
   let hoverTarget = null;
   let mutationDebounce = null;
@@ -430,8 +431,10 @@
     while ((node = walker.nextNode())) {
       const block = getBlockAncestor(node);
       if (block.dataset.ucScanned) continue;
+      if (scanQueueSet.has(block)) continue;
       if (!seen.has(block)) {
         seen.add(block);
+        scanQueueSet.add(block);
         out.push(block);
       }
     }
@@ -527,6 +530,7 @@
     scanIdleId = null;
     while (scanQueue.length > 0 && deadline.timeRemaining() > 5) {
       const blockEl = scanQueue.shift();
+      scanQueueSet.delete(blockEl);
       if (blockEl.isConnected) processBlockElement(blockEl);
     }
     if (scanQueue.length > 0) {
@@ -535,7 +539,12 @@
   }
 
   function enqueueSubtree(root) {
+    const MAX_QUEUE = 500;
     collectBlockElements(root, scanQueue);
+    if (scanQueue.length > MAX_QUEUE) {
+      const dropped = scanQueue.splice(0, scanQueue.length - MAX_QUEUE);
+      for (const el of dropped) scanQueueSet.delete(el);
+    }
     if (!scanIdleId) {
       scanIdleId = requestIdleCallback(drainScanQueue, { timeout: 2000 });
     }
@@ -1100,6 +1109,7 @@
       scanIdleId = null;
     }
     scanQueue.length = 0;
+    scanQueueSet = new WeakSet();
   }
 
   // Start page scan immediately with defaults — don't block on async storage read
