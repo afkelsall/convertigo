@@ -341,5 +341,292 @@
   {
     "input": "DC62M",
     "expected": []
+  },
+  {
+    "note": "comma thousands separator: 1,800 ft should be 1800 ft not 1.8 ft",
+    "input": "1,800 ft",
+    "expected": ["1,800 ft → 548.64 m"]
+  },
+  {
+    "note": "comma thousands separator: weight",
+    "input": "Weight: 2,500 lbs",
+    "expected": ["2,500 lbs → 1133.98 kg"]
+  },
+  {
+    "note": "comma thousands separator: metric",
+    "input": "10,000 km",
+    "expected": ["10,000 km → 6213.73 mi"]
+  },
+  {
+    "note": "comma thousands separator: multi-group",
+    "input": "1,000,000 ft",
+    "expected": ["1,000,000 ft → 304800 m"]
+  },
+
+  {
+    "note": "comma thousands: distance mm",
+    "input": "1,500 mm",
+    "expected": ["1,500 mm → 59.06 in"]
+  },
+  {
+    "note": "comma thousands: distance cm",
+    "input": "2,500 cm",
+    "expected": ["2,500 cm → 984.25 in"]
+  },
+  {
+    "note": "comma thousands: distance m",
+    "input": "1,200 m",
+    "expected": ["1,200 m → 3937.01 ft"]
+  },
+  {
+    "note": "comma thousands: distance yd",
+    "input": "1,500 yd",
+    "expected": ["1,500 yd → 1371.6 m"]
+  },
+  {
+    "note": "comma thousands: distance mi",
+    "input": "2,000 miles",
+    "expected": ["2,000 miles → 3218.68 km"]
+  },
+  {
+    "note": "comma thousands: weight mg",
+    "input": "1,500 mg",
+    "expected": ["1,500 mg → 0.05 oz"]
+  },
+  {
+    "note": "comma thousands: weight g",
+    "input": "2,500 g",
+    "expected": ["2,500 g → 88.18 oz"]
+  },
+  {
+    "note": "comma thousands: weight kg",
+    "input": "1,500 kg",
+    "expected": ["1,500 kg → 3306.94 lb"]
+  },
+  {
+    "note": "comma thousands: weight oz",
+    "input": "1,200 oz",
+    "expected": ["1,200 oz → 34019.4 g (mass)", "1,200 oz → 35488.2 ml (fluid)"]
+  },
+  {
+    "note": "comma thousands: weight ton",
+    "input": "2,000 tons",
+    "expected": ["2,000 tons → 1814370 kg (US)", "2,000 tons → 2032100 kg (Imperial)"]
+  },
+  {
+    "note": "comma thousands: volume ml",
+    "input": "1,500 ml",
+    "expected": ["1,500 ml → 6.34 cup"]
+  },
+  {
+    "note": "comma thousands: volume l",
+    "input": "2,000 liters",
+    "expected": ["2,000 liters → 2113.38 qt"]
+  },
+  {
+    "note": "comma thousands: volume tsp",
+    "input": "1,500 tsp",
+    "expected": ["1,500 tsp → 7393.38 ml"]
+  },
+  {
+    "note": "comma thousands: volume tbsp",
+    "input": "1,000 tbsp",
+    "expected": ["1,000 tbsp → 14786.8 ml"]
+  },
+  {
+    "note": "comma thousands: volume cup",
+    "input": "2,000 cups",
+    "expected": ["2,000 cups → 473176 ml"]
+  },
+  {
+    "note": "comma thousands: volume pint",
+    "input": "1,500 pints",
+    "expected": ["1,500 pints → 709.76 L"]
+  },
+  {
+    "note": "comma thousands: volume qt",
+    "input": "1,000 quarts",
+    "expected": ["1,000 quarts → 946.35 L (US)", "1,000 quarts → 1136.52 L (Imperial)"]
+  },
+  {
+    "note": "comma thousands: volume gal",
+    "input": "1,500 gallons",
+    "expected": ["1,500 gallons → 5678.12 L (US)", "1,500 gallons → 6819.14 L (Imperial)"]
+  },
+  {
+    "note": "comma thousands: volume barrel",
+    "input": "1,000 barrels",
+    "expected": ["1,000 barrels → 119240 L (US fluid)", "1,000 barrels → 158987 L (oil)"]
+  },
+  {
+    "note": "comma thousands: temperature celsius",
+    "input": "1,500 celsius",
+    "expected": ["1,500 celsius → 2732 °F", "1,500 celsius → 1773.15 K"]
+  },
+  {
+    "note": "comma thousands: temperature fahrenheit",
+    "input": "2,500 fahrenheit",
+    "expected": ["2,500 fahrenheit → 1371.11 °C", "2,500 fahrenheit → 1644.26 K"]
+  },
+  {
+    "note": "comma thousands: temperature kelvin",
+    "input": "1,500 kelvin",
+    "expected": ["1,500 kelvin → 1226.85 °C", "1,500 kelvin → 2240.33 °F"]
+  },
+  {
+    "note": "comma thousands: speed kph",
+    "input": "1,200 kph",
+    "expected": ["1,200 kph → 745.65 mph"]
+  },
+  {
+    "note": "comma thousands: speed mph",
+    "input": "1,000 mph",
+    "expected": ["1,000 mph → 1609.34 km/h"]
+  },
+  {
+    "note": "comma thousands: speed m/s",
+    "input": "1,500 m/s",
+    "expected": ["1,500 m/s → 5400 km/h"]
+  },
+  {
+    "note": "comma thousands: speed knots",
+    "input": "1,000 knots",
+    "expected": ["1,000 knots → 1852 km/h"]
+  },
+  {
+    "note": "comma thousands: fuel mpg",
+    "input": "1,500 mpg",
+    "expected": ["1,500 mpg → 637.72 km/L", "1,500 mpg → 0.16 L/100km"]
+  },
+  {
+    "note": "comma thousands: fuel l/100km",
+    "input": "1,000 l/100km",
+    "expected": ["1,000 l/100km → 0.24 MPG", "1,000 l/100km → 0.1 km/L"]
+  },
+  {
+    "note": "comma thousands: fuel km/l",
+    "input": "1,500 km/l",
+    "expected": ["1,500 km/l → 3528.22 MPG", "1,500 km/l → 0.07 L/100km"]
+  },
+
+  {
+    "note": "decimal: distance mm",
+    "input": "2.5 mm",
+    "expected": ["2.5 mm → 0.1 in"]
+  },
+  {
+    "note": "decimal: distance cm",
+    "input": "3.5 cm",
+    "expected": ["3.5 cm → 1.38 in"]
+  },
+  {
+    "note": "decimal: distance yd",
+    "input": "1.5 yd",
+    "expected": ["1.5 yd → 1.37 m"]
+  },
+  {
+    "note": "decimal: weight mg",
+    "input": "2.5 mg",
+    "expected": ["2.5 mg → 0 oz"]
+  },
+  {
+    "note": "decimal: weight g",
+    "input": "3.5 g",
+    "expected": ["3.5 g → 0.12 oz"]
+  },
+  {
+    "note": "decimal: weight oz",
+    "input": "2.5 oz",
+    "expected": ["2.5 oz → 70.87 g (mass)", "2.5 oz → 73.93 ml (fluid)"]
+  },
+  {
+    "note": "decimal: weight ton",
+    "input": "1.5 tons",
+    "expected": ["1.5 tons → 1360.78 kg (US)", "1.5 tons → 1524.07 kg (Imperial)"]
+  },
+  {
+    "note": "decimal: volume ml",
+    "input": "2.5 ml",
+    "expected": ["2.5 ml → 0.51 tsp"]
+  },
+  {
+    "note": "decimal: volume tsp",
+    "input": "1.5 tsp",
+    "expected": ["1.5 tsp → 7.39 ml"]
+  },
+  {
+    "note": "decimal: volume tbsp",
+    "input": "2.5 tbsp",
+    "expected": ["2.5 tbsp → 36.97 ml"]
+  },
+  {
+    "note": "decimal: volume cup",
+    "input": "1.5 cups",
+    "expected": ["1.5 cups → 354.88 ml"]
+  },
+  {
+    "note": "decimal: volume pint",
+    "input": "1.5 pints",
+    "expected": ["1.5 pints → 709.76 ml"]
+  },
+  {
+    "note": "decimal: volume qt",
+    "input": "2.5 quarts",
+    "expected": ["2.5 quarts → 2.37 L (US)", "2.5 quarts → 2.84 L (Imperial)"]
+  },
+  {
+    "note": "decimal: volume gal",
+    "input": "1.5 gallons",
+    "expected": ["1.5 gallons → 5.68 L (US)", "1.5 gallons → 6.82 L (Imperial)"]
+  },
+  {
+    "note": "decimal: volume barrel",
+    "input": "1.5 barrels",
+    "expected": ["1.5 barrels → 178.86 L (US fluid)", "1.5 barrels → 238.48 L (oil)"]
+  },
+  {
+    "note": "decimal: temperature celsius",
+    "input": "36.6 celsius",
+    "expected": ["36.6 celsius → 97.88 °F", "36.6 celsius → 309.75 K"]
+  },
+  {
+    "note": "decimal: temperature kelvin",
+    "input": "1.5 kelvin",
+    "expected": ["1.5 kelvin → -271.65 °C", "1.5 kelvin → -456.97 °F"]
+  },
+  {
+    "note": "decimal: speed kph",
+    "input": "2.5 kph",
+    "expected": ["2.5 kph → 1.55 mph"]
+  },
+  {
+    "note": "decimal: speed mph",
+    "input": "2.5 mph",
+    "expected": ["2.5 mph → 4.02 km/h"]
+  },
+  {
+    "note": "decimal: speed m/s",
+    "input": "2.5 m/s",
+    "expected": ["2.5 m/s → 9 km/h"]
+  },
+  {
+    "note": "decimal: speed knots",
+    "input": "2.5 knots",
+    "expected": ["2.5 knots → 4.63 km/h"]
+  },
+  {
+    "note": "decimal: fuel mpg",
+    "input": "25.5 mpg",
+    "expected": ["25.5 mpg → 10.84 km/L", "25.5 mpg → 9.22 L/100km"]
+  },
+  {
+    "note": "decimal: fuel l/100km",
+    "input": "7.5 l/100km",
+    "expected": ["7.5 l/100km → 31.36 MPG", "7.5 l/100km → 13.33 km/L"]
+  },
+  {
+    "note": "decimal: fuel km/l",
+    "input": "15.5 km/l",
+    "expected": ["15.5 km/l → 36.46 MPG", "15.5 km/l → 6.45 L/100km"]
   }
 ]

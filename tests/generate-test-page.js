@@ -5,6 +5,7 @@ const path = require('path');
 
 const unitFixtures     = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures.json'), 'utf-8'));
 const currencyFixtures = JSON.parse(fs.readFileSync(path.join(__dirname, 'currency-fixtures.json'), 'utf-8'));
+const splitFixtures    = JSON.parse(fs.readFileSync(path.join(__dirname, 'split-tag-fixtures.json'), 'utf-8'));
 
 // Build fixture rows HTML
 function fixtureRow(input, label, extra) {
@@ -20,6 +21,12 @@ const unitRows = unitFixtures.map((f, i) =>
 const currencyRows = currencyFixtures.map((f, i) =>
   fixtureRow(f.input, `C${String(i + 1).padStart(3, '0')}`, f.dollarCurrency || '')
 ).join('\n');
+
+const splitRows = splitFixtures.map((f, i) => {
+  const label = `S${String(i + 1).padStart(3, '0')}`;
+  // The html already contains a <p>; inject class and label attributes
+  return f.html.replace('<p>', `<p class="fixture-line" data-fixture-label="${label}" title="${f.note.replace(/"/g, '&quot;')}">`);
+}).join('\n');
 
 const html = `<!DOCTYPE html>
 <html lang="en">
@@ -74,7 +81,7 @@ const html = `<!DOCTYPE html>
     /* ── layout ── */
     .container {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 0;
       min-height: calc(100vh - 45px);
     }
@@ -164,6 +171,11 @@ ${unitRows}
   <section class="section">
     <h2 class="section-title">Currency fixtures (${currencyFixtures.length}) — target: AUD</h2>
 ${currencyRows}
+  </section>
+
+  <section class="section">
+    <h2 class="section-title">Split-tag fixtures (${splitFixtures.length})</h2>
+${splitRows}
   </section>
 </div>
 
@@ -318,7 +330,71 @@ window.browser = {
     nodes.forEach(n => processTextNode(n, opts));
   }
 
-  document.querySelectorAll('.fixture-line').forEach(scanParagraph);
+  // Block-level scan: concatenates text across sibling inline elements (mirrors content.js)
+  function scanBlockElement(blockEl) {
+    const dollarCurrency = blockEl.dataset.dollarCurrency || 'USD';
+    const opts = { dollarCurrency, targetCurrency: 'AUD' };
+
+    const textNodes = [];
+    const walker = document.createTreeWalker(blockEl, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
+        let el = node.parentElement;
+        while (el && el !== blockEl) {
+          if (el.classList && el.classList.contains('uc-highlight')) return NodeFilter.FILTER_REJECT;
+          el = el.parentElement;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    let n;
+    while ((n = walker.nextNode())) textNodes.push(n);
+    if (textNodes.length === 0) return;
+
+    let fullText = '';
+    const segments = [];
+    for (const tn of textNodes) {
+      segments.push({ node: tn, start: fullText.length, end: fullText.length + tn.nodeValue.length });
+      fullText += tn.nodeValue;
+    }
+
+    const unitMatches     = window.UnitParser.parse(fullText).map(m => ({ ...m, isCurrency: false }));
+    const currencyMatches = window.CurrencyParser.parse(fullText, opts).map(m => ({ ...m, isCurrency: true }));
+    const allMatches = [...unitMatches, ...currencyMatches].sort((a, b) => a.index - b.index);
+
+    const deduped = [];
+    let lastEnd = -1;
+    for (const m of allMatches) {
+      if (m.index >= lastEnd) { deduped.push(m); lastEnd = m.index + m.matchLength; }
+    }
+    if (deduped.length === 0) return;
+
+    for (let i = deduped.length - 1; i >= 0; i--) {
+      const m = deduped[i];
+      const matchStart = m.index;
+      const matchEnd   = m.index + m.matchLength;
+      const matchText  = fullText.slice(matchStart, matchEnd);
+      const startSeg   = segments.find(s => matchStart >= s.start && matchStart < s.end);
+      const endSeg     = segments.find(s => matchEnd   >  s.start && matchEnd   <= s.end);
+      if (!startSeg || !endSeg) continue;
+
+      const range = document.createRange();
+      range.setStart(startSeg.node, matchStart - startSeg.start);
+      range.setEnd(endSeg.node,     matchEnd   - endSeg.start);
+
+      const span = document.createElement('span');
+      span.className = 'uc-highlight';
+      span.dataset.ucOriginal   = matchText;
+      span.dataset.ucIsCurrency = m.isCurrency ? '1' : '0';
+      span.appendChild(range.extractContents());
+      range.insertNode(span);
+    }
+  }
+
+  // Scan unit + currency fixtures (single text node per paragraph)
+  document.querySelectorAll('.section:nth-child(1) .fixture-line, .section:nth-child(2) .fixture-line').forEach(scanParagraph);
+  // Scan split-tag fixtures with block-level processing
+  document.querySelectorAll('.section:nth-child(3) .fixture-line').forEach(scanBlockElement);
 
   // Update span count in status bar
   const spanCount = document.querySelectorAll('.uc-highlight').length;

@@ -163,5 +163,40 @@
     "input": "$89 product on an AU site, also 10 USD",
     "dollarCurrency": "AUD",
     "expected": [{ "currency": "USD", "value": 10, "original": "10 USD" }]
+  },
+  {
+    "note": "comma thousands: EUR symbol",
+    "input": "€2,500",
+    "expected": [{ "currency": "EUR", "value": 2500, "original": "€2,500" }]
+  },
+  {
+    "note": "comma thousands: GBP symbol",
+    "input": "£1,500",
+    "expected": [{ "currency": "GBP", "value": 1500, "original": "£1,500" }]
+  },
+  {
+    "note": "comma thousands: JPY symbol",
+    "input": "¥100,000",
+    "expected": [{ "currency": "JPY", "value": 100000, "original": "¥100,000" }]
+  },
+  {
+    "note": "comma thousands: EUR multi-group",
+    "input": "€1,000,000",
+    "expected": [{ "currency": "EUR", "value": 1000000, "original": "€1,000,000" }]
+  },
+  {
+    "note": "comma thousands with decimal: USD",
+    "input": "$2,500.50",
+    "expected": [{ "currency": "USD", "value": 2500.5, "original": "$2,500.50" }]
+  },
+  {
+    "note": "decimal: EUR",
+    "input": "€2.50",
+    "expected": [{ "currency": "EUR", "value": 2.5, "original": "€2.50" }]
+  },
+  {
+    "note": "decimal: GBP",
+    "input": "£0.99",
+    "expected": [{ "currency": "GBP", "value": 0.99, "original": "£0.99" }]
   }
 ]

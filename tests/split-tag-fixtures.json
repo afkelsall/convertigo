@@ -1,0 +1,141 @@
+[
+  {
+    "note": "A: value in strong, unit in em",
+    "html": "<p>The board is <strong>12</strong> <em>inches</em> wide</p>",
+    "expectedOriginals": ["12 inches"],
+    "expected": ["12 inches -> 30.48 cm"]
+  },
+  {
+    "note": "A: value in b, unit in span",
+    "html": "<p>Package weighs <b>10</b> <span>lbs</span></p>",
+    "expectedOriginals": ["10 lbs"],
+    "expected": ["10 lbs -> 4.54 kg"]
+  },
+  {
+    "note": "A: value in span, unit in b",
+    "html": "<p>Screen is <span>40</span> <b>cm</b> wide</p>",
+    "expectedOriginals": ["40 cm"],
+    "expected": ["40 cm -> 15.75 in"]
+  },
+  {
+    "note": "A: value in em, unit in a",
+    "html": "<p>Speed limit is <em>100</em> <a href=\"#\">kph</a></p>",
+    "expectedOriginals": ["100 kph"],
+    "expected": ["100 kph -> 62.14 mph"]
+  },
+  {
+    "note": "B: no-space value+unit split across sibling spans",
+    "html": "<p>Contains <span>500</span><span>g</span> of sugar</p>",
+    "expectedOriginals": ["500g"],
+    "expected": ["500g -> 17.64 oz"]
+  },
+  {
+    "note": "B: no-space value+unit (km) split across sibling spans",
+    "html": "<p>A <span>5</span><span>km</span> race</p>",
+    "expectedOriginals": ["5km"],
+    "expected": ["5km -> 3.11 mi"]
+  },
+  {
+    "note": "C: fraction in em, unit in strong",
+    "html": "<p>Cut it to <em>3/4</em> <strong>in</strong></p>",
+    "expectedOriginals": ["3/4 in"],
+    "expected": ["3/4 in -> 1.91 cm"]
+  },
+  {
+    "note": "C: mixed number in span, unit in em",
+    "html": "<p>Gap is <span>1 1/2</span> <em>inches</em></p>",
+    "expectedOriginals": ["1 1/2 inches"],
+    "expected": ["1 1/2 inches -> 3.81 cm"]
+  },
+  {
+    "note": "D: match boundary inside context text spans",
+    "html": "<p><span>The board is 12 </span><span>inches wide</span></p>",
+    "expectedOriginals": ["12 inches"],
+    "expected": ["12 inches -> 30.48 cm"]
+  },
+  {
+    "note": "E: range value split across b tags, unit in em",
+    "html": "<p>The board is <b>2</b>-<b>3</b> <em>inches</em> wide</p>",
+    "expectedOriginals": ["2-3 inches"],
+    "expected": ["2-3 inches -> 5.08-7.62 cm"]
+  },
+  {
+    "note": "F: degree symbol at tag boundary",
+    "html": "<p>Water boils at <span>100</span><span>°C</span></p>",
+    "expectedOriginals": ["100°C"],
+    "expected": ["100°C -> 212 °F"]
+  },
+  {
+    "note": "G: multi-match all split across tags",
+    "html": "<p>The box is <b>12</b> <em>inches</em> by <b>5</b> <em>inches</em> and weighs <b>3</b> <em>lbs</em></p>",
+    "expectedOriginals": ["12 inches", "5 inches", "3 lbs"],
+    "expected": ["12 inches -> 30.48 cm", "5 inches -> 12.7 cm", "3 lbs -> 1.36 kg"]
+  },
+  {
+    "note": "H: currency in span, split unit in sibling spans",
+    "html": "<p><span>$100</span> and <span>5</span> <em>m</em> of rope</p>",
+    "expectedOriginals": ["$100", "5 m"],
+    "expected": ["$100 -> AU$ 160.00", "5 m -> 16.4 ft"]
+  },
+  {
+    "note": "I: deeply nested inline elements",
+    "html": "<p>Room is <strong><em><a href=\"#\">3</a></em></strong> <span>m</span> long</p>",
+    "expectedOriginals": ["3 m"],
+    "expected": ["3 m -> 9.84 ft"]
+  },
+  {
+    "note": "J: compound feet-inches with quote in separate span",
+    "html": "<p>He is <span>5'10</span><span>\"</span> tall</p>",
+    "expectedOriginals": ["5'10\""],
+    "expected": ["5'10\" -> 177.8 cm"]
+  },
+  {
+    "note": "K: negative -- cross-block, no match expected",
+    "html": "<div><p><span>12</span></p><p><span>inches</span></p></div>",
+    "expectedOriginals": [],
+    "expected": [],
+    "isMultiBlock": true
+  },
+  {
+    "note": "L: unit word split mid-word across spans",
+    "html": "<p>The board is <span>12 inc</span><span>hes</span> wide</p>",
+    "expectedOriginals": ["12 inches"],
+    "expected": ["12 inches -> 30.48 cm"]
+  },
+  {
+    "note": "A: value in span, ft unit in b, with decimal",
+    "html": "<p>He is <span>5.5</span> <b>ft</b> tall</p>",
+    "expectedOriginals": ["5.5 ft"],
+    "expected": ["5.5 ft -> 1.68 m"]
+  },
+  {
+    "note": "A: mass unit split, value in em, unit in span",
+    "html": "<p>Add <em>0.2</em> <span>kg</span> of flour</p>",
+    "expectedOriginals": ["0.2 kg"],
+    "expected": ["0.2 kg -> 0.44 lb"]
+  },
+  {
+    "note": "A: miles, value in strong, unit in em",
+    "html": "<p>The trail is <strong>3.1</strong> <em>miles</em> long</p>",
+    "expectedOriginals": ["3.1 miles"],
+    "expected": ["3.1 miles -> 4.99 km"]
+  },
+  {
+    "note": "A: comma thousands in strong, unit in em",
+    "html": "<p>Altitude <strong>1,800</strong> <em>ft</em></p>",
+    "expectedOriginals": ["1,800 ft"],
+    "expected": ["1,800 ft -> 548.64 m"]
+  },
+  {
+    "note": "A: comma thousands in span, unit in b",
+    "html": "<p>Distance: <span>10,000</span> <b>km</b></p>",
+    "expectedOriginals": ["10,000 km"],
+    "expected": ["10,000 km -> 6213.73 mi"]
+  },
+  {
+    "note": "A: comma thousands multi-group split across tags",
+    "html": "<p>Weight: <em>1,000,000</em> <span>mg</span></p>",
+    "expectedOriginals": ["1,000,000 mg"],
+    "expected": ["1,000,000 mg -> 35.27 oz"]
+  }
+]

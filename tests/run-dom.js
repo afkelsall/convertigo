@@ -99,6 +99,64 @@ function processTextNode(textNode, currencyParseOpts) {
   parent.replaceChild(fragment, textNode);
 }
 
+function processBlockElement(blockEl, currencyParseOpts) {
+  const textNodes = [];
+  const walker = document.createTreeWalker(blockEl, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
+      let el = node.parentElement;
+      while (el && el !== blockEl) {
+        if (el.classList && el.classList.contains('uc-highlight')) return NodeFilter.FILTER_REJECT;
+        el = el.parentElement;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  let n;
+  while ((n = walker.nextNode())) textNodes.push(n);
+  if (textNodes.length === 0) return;
+
+  let fullText = '';
+  const segments = [];
+  for (const tn of textNodes) {
+    segments.push({ node: tn, start: fullText.length, end: fullText.length + tn.nodeValue.length });
+    fullText += tn.nodeValue;
+  }
+
+  const unitMatches     = window.UnitParser.parse(fullText).map(m => ({ ...m, isCurrency: false }));
+  const currencyMatches = window.CurrencyParser.parse(fullText, currencyParseOpts).map(m => ({ ...m, isCurrency: true }));
+  const allMatches = [...unitMatches, ...currencyMatches].sort((a, b) => a.index - b.index);
+
+  const deduped = [];
+  let lastEnd = -1;
+  for (const m of allMatches) {
+    if (m.index >= lastEnd) { deduped.push(m); lastEnd = m.index + m.matchLength; }
+  }
+  if (deduped.length === 0) return;
+
+  for (let i = deduped.length - 1; i >= 0; i--) {
+    const m = deduped[i];
+    const matchStart = m.index;
+    const matchEnd   = m.index + m.matchLength;
+    const matchText  = fullText.slice(matchStart, matchEnd);
+
+    const startSeg = segments.find(s => matchStart >= s.start && matchStart < s.end);
+    const endSeg   = segments.find(s => matchEnd   >  s.start && matchEnd   <= s.end);
+    if (!startSeg || !endSeg) continue;
+
+    const range = document.createRange();
+    range.setStart(startSeg.node, matchStart - startSeg.start);
+    range.setEnd(endSeg.node,     matchEnd   - endSeg.start);
+
+    const span = document.createElement('span');
+    span.className = 'uc-highlight';
+    span.dataset.ucOriginal   = matchText;
+    span.dataset.ucIsCurrency = m.isCurrency ? '1' : '0';
+    span.appendChild(range.extractContents());
+    range.insertNode(span);
+  }
+}
+
 function getUnitReplacementText(original) {
   const parsed = window.UnitParser.parse(original);
   if (!parsed.length) return null;
@@ -388,12 +446,138 @@ if (noOverlap) {
   mixedFailures.push('spans overlap or are out of order in original text');
 }
 
+// ---------- Split-tag tests ----------
+const splitFixtures = JSON.parse(fs.readFileSync(path.join(__dirname, 'split-tag-fixtures.json'), 'utf-8'));
+
+const splitContainer = document.createElement('div');
+document.body.appendChild(splitContainer);
+
+// Build DOM from each fixture's html
+for (let i = 0; i < splitFixtures.length; i++) {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = splitFixtures[i].html;
+  const el = wrapper.firstElementChild;
+  el.dataset.splitIdx = String(i);
+  splitContainer.appendChild(el);
+}
+
+// Phase ST-1: Scan each fixture block
+for (const el of splitContainer.children) {
+  const idx     = parseInt(el.dataset.splitIdx, 10);
+  const fixture = splitFixtures[idx];
+  const opts    = { dollarCurrency: fixture.dollarCurrency || 'USD', targetCurrency: 'AUD' };
+
+  if (fixture.isMultiBlock) {
+    // negative case: process each child <p> independently
+    for (const child of el.querySelectorAll('p')) {
+      processBlockElement(child, opts);
+    }
+  } else {
+    processBlockElement(el, opts);
+  }
+}
+
+// Phase ST-2: Verify scan detection
+let splitScanPassed = 0, splitScanFailed = 0;
+const splitScanFailures = [];
+
+for (const el of splitContainer.children) {
+  const idx     = parseInt(el.dataset.splitIdx, 10);
+  const fixture = splitFixtures[idx];
+
+  const spans          = [...el.querySelectorAll('.uc-highlight')];
+  const actualOriginals = spans.map(s => s.dataset.ucOriginal);
+  const expected        = fixture.expectedOriginals;
+
+  const ok = expected.length === actualOriginals.length &&
+             expected.every((e, i) => actualOriginals[i] === e);
+  if (ok) {
+    splitScanPassed++;
+  } else {
+    splitScanFailed++;
+    splitScanFailures.push({ note: fixture.note, expected, actual: actualOriginals });
+  }
+}
+
+// Phase ST-3: Verify replacement
+const splitReplacedSpans = [];
+
+for (const span of splitContainer.querySelectorAll('.uc-highlight')) {
+  replaceHighlightSpan(span, splitReplacedSpans);
+}
+
+let splitReplacePassed = 0, splitReplaceFailed = 0;
+const splitReplaceFailures = [];
+
+for (const el of splitContainer.children) {
+  const idx     = parseInt(el.dataset.splitIdx, 10);
+  const fixture = splitFixtures[idx];
+  const spans   = [...el.querySelectorAll('.uc-highlight')];
+
+  if (spans.length === 0 && fixture.expectedOriginals.length === 0) {
+    splitReplacePassed++;
+    continue;
+  }
+
+  let allOk = true;
+  const details = [];
+
+  for (let si = 0; si < spans.length; si++) {
+    const span     = spans[si];
+    const original = span.dataset.ucOriginal;
+    // expected[si] is "original -> converted"; extract the converted part
+    const expectedEntry = fixture.expected[si] || '';
+    const arrowIdx      = expectedEntry.indexOf(' -> ');
+    const expectedText  = arrowIdx >= 0 ? expectedEntry.slice(arrowIdx + 4) : null;
+    const actual        = span.textContent;
+    const hasClass      = span.classList.contains('uc-alt-replaced');
+
+    if (!expectedText) {
+      if (actual !== original || hasClass) {
+        allOk = false;
+        details.push({ original, expected: original + ' (unreplaced)', actual });
+      }
+    } else if (actual !== expectedText || !hasClass) {
+      allOk = false;
+      details.push({ original, expected: expectedText, actual });
+    }
+  }
+
+  if (allOk) {
+    splitReplacePassed++;
+  } else {
+    splitReplaceFailed++;
+    splitReplaceFailures.push({ note: fixture.note, details });
+  }
+}
+
+// Phase ST-4: Verify restore
+deactivateReplace(splitReplacedSpans);
+
+let splitRestorePassed = 0, splitRestoreFailed = 0;
+const splitRestoreFailures = [];
+
+for (const span of splitContainer.querySelectorAll('.uc-highlight')) {
+  const original = span.dataset.ucOriginal;
+  const actual   = span.textContent;
+  const hasClass = span.classList.contains('uc-alt-replaced');
+  if (actual === original && !hasClass) {
+    splitRestorePassed++;
+  } else {
+    splitRestoreFailed++;
+    splitRestoreFailures.push({ note: 'restore', original, actual, hasClass });
+  }
+}
+
 // ---------- Report ----------
 const total = unitFixtures.length + currencyFixtures.length;
 console.log(`\nScan detection:      ${scanPassed} passed, ${scanFailed} failed, ${total} total`);
 console.log(`Replace activation:  ${replacePassed} passed, ${replaceFailed} failed, ${total} total`);
 console.log(`Restore deactivate:  ${restorePassed} passed, ${restoreFailed} failed (per-span)`);
-console.log(`Mixed dedup tests:   ${mixedPassed} passed, ${mixedFailed} failed, ${mixedPassed + mixedFailed} total\n`);
+console.log(`Mixed dedup tests:   ${mixedPassed} passed, ${mixedFailed} failed, ${mixedPassed + mixedFailed} total`);
+console.log(`Split-tag detection: ${splitScanPassed} passed, ${splitScanFailed} failed, ${splitFixtures.length} total`);
+console.log(`Split-tag replace:   ${splitReplacePassed} passed, ${splitReplaceFailed} failed, ${splitFixtures.length} total`);
+console.log(`Split-tag restore:   ${splitRestorePassed} passed, ${splitRestoreFailed} failed (per-span)\n`);
 
 for (const f of scanFailures) {
   const note = f.note ? ` [${f.note}]` : '';
@@ -421,7 +605,28 @@ for (const msg of mixedFailures) {
 }
 if (mixedFailures.length) console.log();
 
-const anyFailed = scanFailed > 0 || replaceFailed > 0 || restoreFailed > 0 || mixedFailed > 0;
+for (const f of splitScanFailures) {
+  console.log(`FAIL (split-tag scan): [${f.note}]`);
+  console.log(`  expected: ${JSON.stringify(f.expected)}`);
+  console.log(`  actual:   ${JSON.stringify(f.actual)}`);
+  console.log();
+}
+
+for (const f of splitReplaceFailures) {
+  console.log(`FAIL (split-tag replace): [${f.note}]`);
+  for (const d of f.details) {
+    console.log(`  span "${d.original}": expected "${d.expected}", got "${d.actual}"`);
+  }
+  console.log();
+}
+
+for (const f of splitRestoreFailures) {
+  console.log(`FAIL (split-tag restore): original="${f.original}", actual="${f.actual}", hasClass=${f.hasClass}`);
+}
+if (splitRestoreFailures.length) console.log();
+
+const anyFailed = scanFailed > 0 || replaceFailed > 0 || restoreFailed > 0 || mixedFailed > 0 ||
+                  splitScanFailed > 0 || splitReplaceFailed > 0 || splitRestoreFailed > 0;
 if (!anyFailed) {
   console.log('All DOM toggle tests passed.');
 }
