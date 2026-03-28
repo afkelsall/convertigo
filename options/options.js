@@ -73,6 +73,7 @@
     document.getElementById('replace-key').value = settings.replaceKey;
     document.getElementById('permanent-replace').checked = settings.permanentReplace;
     document.getElementById('dev-mode').checked = settings.devMode;
+    if (settings.devMode) document.getElementById('dev-section').style.visibility = '';
   }
 
   function readSettings() {
@@ -118,13 +119,13 @@
     document.addEventListener('keydown', (e) => {
       if (e.ctrlKey && e.altKey && e.shiftKey) {
         devUnlocked = true;
-        devSection.style.display = '';
+        devSection.style.visibility = '';
       }
     });
     document.addEventListener('keyup', () => {
       if (devUnlocked && !devSection.querySelector('#dev-mode').checked) {
         devUnlocked = false;
-        devSection.style.display = 'none';
+        devSection.style.visibility = 'hidden';
       }
     });
 
