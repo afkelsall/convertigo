@@ -120,7 +120,7 @@
         devUnlocked = true;
         devSection.style.display = '';
         requestAnimationFrame(() => {
-          document.body.style.minHeight = document.body.scrollHeight + 'px';
+          window.resizeTo(window.outerWidth, document.body.scrollHeight + (window.outerHeight - window.innerHeight));
         });
       }
     });
@@ -128,7 +128,7 @@
       if (devUnlocked && !devSection.querySelector('#dev-mode').checked) {
         devUnlocked = false;
         devSection.style.display = 'none';
-        document.body.style.minHeight = '';
+        window.resizeTo(window.outerWidth, document.body.scrollHeight + (window.outerHeight - window.innerHeight));
       }
     });
 
