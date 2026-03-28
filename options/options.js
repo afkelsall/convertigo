@@ -110,19 +110,28 @@
       el.addEventListener('change', saveSettings);
     });
 
-    // Ctrl+Alt+Shift+D toggles dev mode — no visible UI, confirmed via title flash
-    const h1 = document.querySelector('h1');
-    document.addEventListener('keydown', async (e) => {
-      if (e.ctrlKey && e.altKey && e.shiftKey && e.key === 'D') {
-        const current = await window.ConvertigoSettings.load();
-        const next = !current.devMode;
-        await browser.storage.local.set({
-          [window.ConvertigoSettings.STORAGE_KEY]: Object.assign({}, current, { devMode: next })
-        });
-        const orig = h1.textContent;
-        h1.textContent = next ? 'DEV MODE ON' : 'DEV MODE OFF';
-        setTimeout(() => { h1.textContent = orig; }, 1500);
+    // Ctrl+Alt+Shift reveals the dev button; releasing any modifier hides it again
+    const devBtn = document.getElementById('dev-btn');
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.altKey && e.shiftKey) {
+        devBtn.style.visibility = 'visible';
       }
+    });
+    document.addEventListener('keyup', (e) => {
+      if (!e.ctrlKey || !e.altKey || !e.shiftKey) {
+        devBtn.style.visibility = 'hidden';
+      }
+    });
+
+    devBtn.textContent = 'Developer mode: ' + (settings.devMode ? 'ON' : 'OFF');
+
+    devBtn.addEventListener('click', async () => {
+      const s = await window.ConvertigoSettings.load();
+      const next = !s.devMode;
+      await browser.storage.local.set({
+        [window.ConvertigoSettings.STORAGE_KEY]: Object.assign({}, s, { devMode: next })
+      });
+      devBtn.textContent = 'Developer mode: ' + (next ? 'ON' : 'OFF');
     });
 
     document.getElementById('reset-btn').addEventListener('click', async () => {
