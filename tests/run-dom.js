@@ -159,6 +159,13 @@ function processBlockElement(blockEl, currencyParseOpts) {
     span.dataset.ucIsCurrency = m.isCurrency ? '1' : '0';
     span.appendChild(range.extractContents());
     range.insertNode(span);
+
+    let prev = span.previousSibling;
+    while (prev && prev.nodeType === Node.ELEMENT_NODE && prev.textContent === '') {
+      const toRemove = prev;
+      prev = prev.previousSibling;
+      toRemove.remove();
+    }
   }
 }
 
@@ -501,6 +508,35 @@ for (const el of splitContainer.children) {
   } else {
     splitScanFailed++;
     splitScanFailures.push({ note: fixture.note, expected, actual: actualOriginals });
+  }
+
+  if (fixture.expectedBlockText !== undefined) {
+    // Check the block's textContent matches (catches double-symbol in Firefox)
+    const actualBlockText = el.textContent;
+    if (actualBlockText === fixture.expectedBlockText) {
+      splitScanPassed++;
+    } else {
+      splitScanFailed++;
+      splitScanFailures.push({ note: fixture.note + ' [block text]', expected: [fixture.expectedBlockText], actual: [actualBlockText] });
+    }
+
+    // Check no orphaned empty elements were left outside .uc-highlight spans
+    // (extractContents leaves empty partial-ancestor clones behind, causing double symbols)
+    const orphaned = [...el.querySelectorAll('*')].filter(node =>
+      !node.classList.contains('uc-highlight') &&
+      node.closest('.uc-highlight') === null &&
+      node.textContent === ''
+    );
+    if (orphaned.length === 0) {
+      splitScanPassed++;
+    } else {
+      splitScanFailed++;
+      splitScanFailures.push({
+        note: fixture.note + ' [orphaned empty elements]',
+        expected: ['no orphaned empty elements outside .uc-highlight'],
+        actual: orphaned.map(n => n.outerHTML)
+      });
+    }
   }
 }
 

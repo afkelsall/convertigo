@@ -137,5 +137,61 @@
     "html": "<p>Weight: <em>1,000,000</em> <span>mg</span></p>",
     "expectedOriginals": ["1,000,000 mg"],
     "expected": ["1,000,000 mg -> 35.27 oz"]
+  },
+  {
+    "note": "M: currency symbol in child span, number as text node ($1) — double-symbol bug",
+    "html": "<p><span class=\"currency-symbol\">$</span>1</p>",
+    "expectedOriginals": ["$1"],
+    "expected": ["$1 -> AU$ 1.60"],
+    "expectedBlockText": "$1"
+  },
+  {
+    "note": "M: currency symbol in child span ($3) — double-symbol bug",
+    "html": "<p><span class=\"currency-symbol\">$</span>3</p>",
+    "expectedOriginals": ["$3"],
+    "expected": ["$3 -> AU$ 4.80"],
+    "expectedBlockText": "$3"
+  },
+  {
+    "note": "M: currency symbol in child span with decimal — double-symbol bug",
+    "html": "<p><span class=\"currency-symbol\">$</span>99.99</p>",
+    "expectedOriginals": ["$99.99"],
+    "expected": ["$99.99 -> AU$ 159.98"],
+    "expectedBlockText": "$99.99"
+  },
+  {
+    "note": "M: euro symbol in child span — double-symbol bug",
+    "html": "<p><span class=\"currency-symbol\">\u20ac</span>50</p>",
+    "expectedOriginals": ["\u20ac50"],
+    "expected": ["\u20ac50 -> AU$ 86.21"],
+    "expectedBlockText": "\u20ac50"
+  },
+  {
+    "note": "M: pound symbol in child span with decimal — double-symbol bug",
+    "html": "<p><span class=\"currency-symbol\">\u00a3</span>25.50</p>",
+    "expectedOriginals": ["\u00a325.50"],
+    "expected": ["\u00a325.50 -> AU$ 51.00"],
+    "expectedBlockText": "\u00a325.50"
+  },
+  {
+    "note": "M: nested spans matching addy.io pricing structure — double-symbol bug",
+    "html": "<p><span class=\"text-4xl\"><span class=\"currency-symbol\">$</span>1</span><span>/month</span></p>",
+    "expectedOriginals": ["$1"],
+    "expected": ["$1 -> AU$ 1.60"],
+    "expectedBlockText": "$1/month"
+  },
+  {
+    "note": "M: currency symbol span with surrounding text — double-symbol bug",
+    "html": "<p>Price: <span class=\"currency-symbol\">$</span>5 per item</p>",
+    "expectedOriginals": ["$5"],
+    "expected": ["$5 -> AU$ 8.00"],
+    "expectedBlockText": "Price: $5 per item"
+  },
+  {
+    "note": "M: multiple split-symbol prices in same block — double-symbol bug",
+    "html": "<p><span>$</span>1 and <span>$</span>3</p>",
+    "expectedOriginals": ["$1", "$3"],
+    "expected": ["$1 -> AU$ 1.60", "$3 -> AU$ 4.80"],
+    "expectedBlockText": "$1 and $3"
   }
 ]

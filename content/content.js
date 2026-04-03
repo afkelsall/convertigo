@@ -522,6 +522,16 @@
       span.appendChild(contents);
       range.insertNode(span);
 
+      // extractContents clones partial ancestors (e.g. <span class="currency-symbol">$</span>)
+      // into the fragment but leaves empty shells in the DOM immediately before the inserted span.
+      // Remove those empty shells to prevent double-symbol rendering in the browser.
+      let prev = span.previousSibling;
+      while (prev && prev.nodeType === Node.ELEMENT_NODE && prev.textContent === '') {
+        const toRemove = prev;
+        prev = prev.previousSibling;
+        toRemove.remove();
+      }
+
       replaceSpanIfActive(span);
     }
   }
