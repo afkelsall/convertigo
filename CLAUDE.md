@@ -2,6 +2,11 @@
 
 Firefox Manifest V2 extension that detects measurement units in selected text and shows metric↔imperial conversions in a top-right popup.
 
+## IMPORTANT: Shell command rules
+- **Never chain commands** with `&&`, `;`, or `||` — they trigger approval prompts and will be blocked
+- Run each command as a separate tool call instead
+- Use `git -C <path> <cmd>` in place of `cd <path> && git <cmd>`
+
 ## Structure
 - `manifest.json` - Extension config, loads content scripts on all URLs
 - `lib/parser.js` - Regex-based unit detection from text (decimals, fractions, mixed numbers like "1 1/2", `"` as inch symbol)
