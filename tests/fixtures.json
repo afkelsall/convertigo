@@ -240,6 +240,26 @@
     "expected": ["32°f → 0 °C", "32°f → 273.15 K"]
   },
   {
+    "input": "I take mine to around 52c for reverse sear",
+    "expected": ["52c → 125.6 °F", "52c → 325.15 K"]
+  },
+  {
+    "input": "reverse sear 125f? - never fails me",
+    "expected": ["125f → 51.67 °C", "125f → 324.82 K"]
+  },
+  {
+    "input": "WSM at 250f until about 115f internal",
+    "expected": ["250f → 121.11 °C", "250f → 394.26 K", "115f → 46.11 °C", "115f → 319.26 K"]
+  },
+  {
+    "input": "Oven at 350F for 30 minutes",
+    "expected": ["350F → 176.67 °C", "350F → 449.82 K"]
+  },
+  {
+    "input": "850g Scotch Fillet on the WSM at 250f",
+    "expected": ["850g → 29.98 oz", "250f → 121.11 °C", "250f → 394.26 K"]
+  },
+  {
     "input": "Speed limit is 100 kph",
     "expected": ["100 kph → 62.14 mph"]
   },
