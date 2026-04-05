@@ -6,6 +6,7 @@ Firefox Manifest V2 extension that detects measurement units in selected text an
 - **Never chain commands** with `&&`, `;`, or `||` — they trigger approval prompts and will be blocked
 - Run each command as a separate tool call instead
 - Use `git -C <path> <cmd>` in place of `cd <path> && git <cmd>`
+- For non-git commands (e.g. `node`), use absolute paths to the script — never `cd <path> && node ...`
 
 ## Structure
 - `manifest.json` - Extension config, loads content scripts on all URLs
@@ -13,6 +14,11 @@ Firefox Manifest V2 extension that detects measurement units in selected text an
 - `lib/converter.js` - Bidirectional conversion with auto-downscale (e.g. 0.5 kg → 500 g)
 - `content/content.js` - Selection listener (mouseup/keyup), popup DOM injection/lifecycle
 - `content/content.css` - Popup styling (fixed top-right, dark theme, `uc-` prefixed classes, z-index max)
+
+## Settings popup height
+- Firefox extension popups don't reliably auto-resize. Adding content to `options/options.html` often causes scrollbars.
+- The fix is `overflow: hidden` on `body` in the popup CSS — Firefox's scrollbar appears even when content fits.
+- Do NOT try `window.resizeTo()`, `body.style.minHeight`, or reducing spacing — they don't work or aren't needed. Just use `overflow: hidden`.
 
 ## Key details
 - No background script; everything runs as content scripts

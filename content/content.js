@@ -18,6 +18,10 @@
   // Settings — initialized to defaults, loaded async on startup
   let settings = Object.assign({}, window.ConvertigoSettings.DEFAULTS);
 
+  function isPageDisabled() {
+    return !!(settings.disabledUrls && settings.disabledUrls.includes(window.location.href));
+  }
+
   function getCurrencyParseOptions() {
     const hostname = window.location.hostname;
     const dollarCurrency = hostname.endsWith('.au') ? 'AUD' : 'USD';
@@ -276,6 +280,7 @@
   }
 
   async function handleSelection() {
+    if (isPageDisabled()) { removePopup(); return; }
     const selection = window.getSelection();
     const text = selection ? selection.toString().trim() : '';
 
@@ -647,6 +652,7 @@
   }
 
   function onHighlightMouseover(e) {
+    if (isPageDisabled()) return;
     if (!settings.hoverEnabled) return;
     const span = e.target.closest && e.target.closest('.uc-highlight');
     if (!span) return;
@@ -745,6 +751,7 @@
   }
 
   function activateReplace() {
+    if (isPageDisabled()) return;
     if (isReplaceActive) return;
     isReplaceActive = true;
 
@@ -1133,32 +1140,51 @@
   window.ConvertigoSettings.load().then(loaded => {
     settings = loaded;
     applyHoverCursor(settings.hoverEnabled);
-    if (!settings.pageScanEnabled) stopPageScan();
+    if (isPageDisabled()) {
+      stopPageScan();
+      removeAllHighlights();
+    } else if (!settings.pageScanEnabled) {
+      stopPageScan();
+    }
     if (settings.permanentReplace) activateReplace();
   });
 
   // React to settings changes without page reload
   window.ConvertigoSettings.onChange(newSettings => {
     const wasPageScan = settings.pageScanEnabled;
+    const wasDisabled = isPageDisabled();
     const prevUnitSystem = settings.unitSystem;
     settings = newSettings;
+    const nowDisabled = isPageDisabled();
 
     applyHoverCursor(settings.hoverEnabled);
 
-    if (settings.unitSystem !== prevUnitSystem && settings.pageScanEnabled) {
-      removeAllHighlights();
-      startPageScan();
-    } else if (settings.pageScanEnabled && !wasPageScan) {
-      startPageScan();
-    } else if (!settings.pageScanEnabled && wasPageScan) {
+    if (nowDisabled && !wasDisabled) {
+      // Page just became disabled — shut everything down
       stopPageScan();
-    }
-
-    if (settings.permanentReplace) {
-      if (!isReplaceActive) activateReplace();
-    } else {
-      // Deactivate replace if permanent mode turned off or key changed while active
+      removeAllHighlights();
+      removePopup();
       if (isReplaceActive) deactivateReplace();
+    } else if (!nowDisabled && wasDisabled) {
+      // Page just became re-enabled — restart as appropriate
+      if (settings.pageScanEnabled) startPageScan();
+      if (settings.permanentReplace) activateReplace();
+    } else if (!nowDisabled) {
+      if (settings.unitSystem !== prevUnitSystem && settings.pageScanEnabled) {
+        removeAllHighlights();
+        startPageScan();
+      } else if (settings.pageScanEnabled && !wasPageScan) {
+        startPageScan();
+      } else if (!settings.pageScanEnabled && wasPageScan) {
+        stopPageScan();
+      }
+
+      if (settings.permanentReplace) {
+        if (!isReplaceActive) activateReplace();
+      } else {
+        // Deactivate replace if permanent mode turned off or key changed while active
+        if (isReplaceActive) deactivateReplace();
+      }
     }
   });
 })();

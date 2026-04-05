@@ -42,8 +42,9 @@
   };
 
   let saveTimeout = null;
+  let currentTabUrl = '';
 
-  function populateCurrencySelect(selected) {
+function populateCurrencySelect(selected) {
     const select = document.getElementById('currency');
     select.innerHTML = '';
     CURRENCY_CODES.forEach(code => {
@@ -72,6 +73,10 @@
     document.getElementById('page-scan-enabled').checked = settings.pageScanEnabled;
     document.getElementById('replace-key').value = settings.replaceKey;
     document.getElementById('permanent-replace').checked = settings.permanentReplace;
+
+    const disabledUrls = settings.disabledUrls || [];
+    document.getElementById('page-disabled').checked =
+      currentTabUrl ? disabledUrls.includes(currentTabUrl) : false;
   }
 
   function readSettings() {
@@ -95,7 +100,9 @@
   }
 
   async function saveSettings() {
-    const settings = readSettings();
+    const current = await window.ConvertigoSettings.load();
+    // Merge: preserve disabledUrls (managed by toggle) when saving from the form
+    const settings = Object.assign({}, current, readSettings());
     await browser.storage.local.set({
       [window.ConvertigoSettings.STORAGE_KEY]: settings
     });
@@ -103,11 +110,33 @@
   }
 
   async function init() {
+    // Get current tab URL before applying settings so the toggle renders correctly
+    try {
+      const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+      if (tabs.length > 0 && tabs[0].url) currentTabUrl = tabs[0].url;
+    } catch (e) { /* no tab access */ }
+
     const settings = await window.ConvertigoSettings.load();
     applySettings(settings);
 
     document.querySelectorAll('select, input[type="radio"], input[type="checkbox"]').forEach(el => {
+      if (el.id === 'page-disabled') return; // handled separately
       el.addEventListener('change', saveSettings);
+    });
+
+    // Quick disable toggle for current page (operates on disabledUrls, not the pattern list)
+    document.getElementById('page-disabled').addEventListener('change', async (e) => {
+      const s = await window.ConvertigoSettings.load();
+      let urls = (s.disabledUrls || []).slice();
+      if (e.target.checked) {
+        if (currentTabUrl && !urls.includes(currentTabUrl)) urls.push(currentTabUrl);
+      } else {
+        urls = urls.filter(u => u !== currentTabUrl);
+      }
+      await browser.storage.local.set({
+        [window.ConvertigoSettings.STORAGE_KEY]: Object.assign({}, s, { disabledUrls: urls })
+      });
+      showSaved();
     });
 
     // Ctrl+Alt+Shift reveals the dev button; releasing any modifier hides it again
@@ -195,6 +224,7 @@
         feedbackSendBtn.disabled = false;
       }
     });
+
   }
 
   init();
