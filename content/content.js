@@ -12,6 +12,7 @@
   let scanIdleId = null;
   let hoverTarget = null;
   let mutationDebounce = null;
+  let pendingMutations = [];
   let isReplaceActive = false;
   let replacedSpans = [];
 
@@ -1050,9 +1051,12 @@
     enqueueSubtree(document.body);
     if (!ucObserver) {
       ucObserver = new MutationObserver((mutations) => {
+        pendingMutations.push(...mutations);
         clearTimeout(mutationDebounce);
         mutationDebounce = setTimeout(() => {
-          for (const m of mutations) {
+          const batch = pendingMutations;
+          pendingMutations = [];
+          for (const m of batch) {
             if (m.type === 'characterData') {
               const el = m.target.parentElement;
               if (!el) continue;
@@ -1127,6 +1131,7 @@
     }
     scanQueue.length = 0;
     scanQueueSet = new WeakSet();
+    pendingMutations = [];
   }
 
   // Start page scan immediately with defaults — don't block on async storage read
