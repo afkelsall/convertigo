@@ -10,6 +10,8 @@
   let scanQueue = [];
   let scanQueueSet = new WeakSet();
   let scanIdleId = null;
+  let blockScanTimes = new WeakMap();   // block element → timestamp of last scan (#3 throttle)
+  let deferredBlocks = new WeakSet();   // blocks with a pending deferred rescan
   let hoverTarget = null;
   let mutationDebounce = null;
   let pendingMutations = [];
@@ -402,6 +404,28 @@
     'NAV','OL','P','PRE','SECTION','SUMMARY','TABLE','TBODY','TD','TFOOT',
     'TH','THEAD','TR','UL'
   ]);
+  // ARIA roles that imply frequently-updating content (live auction bids, countdown
+  // timers, status tickers). Highlighting inside these causes a re-scan storm because
+  // the page rewrites them constantly — skip them entirely.
+  const LIVE_ROLES = new Set(['timer','status','alert','marquee','progressbar']);
+  // Blocks whose concatenated text exceeds this are too large to highlight cheaply.
+  // We mark them scanned and bail rather than re-parsing on every mutation.
+  const MAX_BLOCK_TEXT = 20000;
+  // Minimum gap between successive scans of the same block. Live-updating pages fire
+  // mutations continuously; this caps each block to one re-walk + re-parse per window.
+  const RESCAN_THROTTLE_MS = 1000;
+  // Idle deadline for the scan drain. A large timeout means that on a busy main thread
+  // (e.g. heavy page load) we defer scan work to genuine idle instead of forcing wakeups.
+  const SCAN_IDLE_TIMEOUT = 10000;
+
+  function isLiveRegionEl(el) {
+    if (!el || !el.getAttribute) return false;
+    const live = el.getAttribute('aria-live');
+    if (live && live !== 'off') return true;
+    const role = el.getAttribute('role');
+    if (role && LIVE_ROLES.has(role.toLowerCase())) return true;
+    return false;
+  }
 
   function isSkippableNode(node) {
     let el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
@@ -410,6 +434,7 @@
       if (el.isContentEditable) return true;
       if (el.id === POPUP_ID) return true;
       if (el.classList && el.classList.contains('uc-highlight')) return true;
+      if (isLiveRegionEl(el)) return true;
       el = el.parentElement;
     }
     return false;
@@ -446,9 +471,34 @@
     }
   }
 
+  function scheduleDeferredRescan(blockEl, lastScan) {
+    if (deferredBlocks.has(blockEl)) return;
+    deferredBlocks.add(blockEl);
+    const wait = Math.max(0, RESCAN_THROTTLE_MS - (Date.now() - lastScan));
+    setTimeout(() => {
+      deferredBlocks.delete(blockEl);
+      if (!blockEl.isConnected) return;
+      delete blockEl.dataset.ucScanned;   // clear the suppression flag set when throttled
+      enqueueSubtree(blockEl);
+    }, wait);
+  }
+
   function processBlockElement(blockEl) {
     if (!blockEl.isConnected) return;
     if (blockEl.dataset.ucScanned) return;
+
+    // Throttle re-scans of the same block (#3). On live-updating pages a flood of mutations
+    // would otherwise re-walk + re-parse this block on every change. If we scanned it too
+    // recently, mark it scanned to suppress further enqueues this window and schedule a single
+    // deferred rescan that captures the latest state once the window elapses.
+    const now = Date.now();
+    const lastScan = blockScanTimes.get(blockEl);
+    if (lastScan !== undefined && now - lastScan < RESCAN_THROTTLE_MS) {
+      blockEl.dataset.ucScanned = '1';
+      scheduleDeferredRescan(blockEl, lastScan);
+      return;
+    }
+    blockScanTimes.set(blockEl, now);
 
     // Collect all text nodes within this block (not in nested blocks or highlights)
     // Include whitespace-only nodes — they may be separators between inline elements
@@ -475,6 +525,11 @@
       segments.push({ node: tn, start: fullText.length, end: fullText.length + tn.nodeValue.length });
       fullText += tn.nodeValue;
     }
+
+    // Oversized blocks (e.g. the document.body fallback on non-semantic markup) are too
+    // expensive to parse+highlight on every mutation. ucScanned is already set above, so
+    // we won't re-walk this block until something inside it actually mutates.
+    if (fullText.length > MAX_BLOCK_TEXT) return;
 
     const unitMatches = window.UnitParser.parse(fullText).map(m => ({ ...m, isCurrency: false }));
     const currencyMatches = window.CurrencyParser.parse(fullText, getCurrencyParseOptions()).map(m => ({ ...m, isCurrency: true }));
@@ -549,8 +604,14 @@
       scanQueueSet.delete(blockEl);
       if (blockEl.isConnected) processBlockElement(blockEl);
     }
+    // Discard the mutation records our own span insertions just generated. extractContents()
+    // splits text nodes (a characterData mutation) and insertNode adds children; without this,
+    // the observer would clear ucScanned and re-enqueue the very blocks we just scanned. This
+    // runs synchronously right after our writes, so the only queued records are ours — any real
+    // page mutations were already delivered to the observer before this idle callback ran.
+    if (ucObserver) ucObserver.takeRecords();
     if (scanQueue.length > 0) {
-      scanIdleId = requestIdleCallback(drainScanQueue, { timeout: 2000 });
+      scanIdleId = requestIdleCallback(drainScanQueue, { timeout: SCAN_IDLE_TIMEOUT });
     }
   }
 
@@ -562,7 +623,7 @@
       for (const el of dropped) scanQueueSet.delete(el);
     }
     if (!scanIdleId) {
-      scanIdleId = requestIdleCallback(drainScanQueue, { timeout: 2000 });
+      scanIdleId = requestIdleCallback(drainScanQueue, { timeout: SCAN_IDLE_TIMEOUT });
     }
   }
 
@@ -1107,6 +1168,10 @@
               }
             }
           }
+          // Unwrapping stale spans above generates its own childList mutations. We've already
+          // re-enqueued the affected blocks explicitly, so discard those self-generated records
+          // to avoid a redundant second pass on the next observer tick.
+          if (ucObserver) ucObserver.takeRecords();
         }, 200);
       });
       ucObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
@@ -1131,6 +1196,8 @@
     }
     scanQueue.length = 0;
     scanQueueSet = new WeakSet();
+    blockScanTimes = new WeakMap();
+    deferredBlocks = new WeakSet();
     pendingMutations = [];
   }
 

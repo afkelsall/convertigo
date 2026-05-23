@@ -99,9 +99,53 @@ function processTextNode(textNode, currencyParseOpts) {
   parent.replaceChild(fragment, textNode);
 }
 
+// Mirrors content.js block guards (#2): skip live regions and oversized blocks.
+const LIVE_ROLES = new Set(['timer', 'status', 'alert', 'marquee', 'progressbar']);
+const MAX_BLOCK_TEXT = 20000;
+
+// Mirrors content.js re-scan throttle (#3). nowMs() is an injectable clock: when MOCK_NOW
+// is null (the default) it auto-advances a full window per call, so back-to-back scans of the
+// same block are never throttled — keeping all the non-throttle tests behaving as before.
+// The throttle tests set MOCK_NOW to fixed values to drive the rate limiter deterministically.
+const RESCAN_THROTTLE_MS = 1000;
+const blockScanTimes = new WeakMap();
+let MOCK_NOW = null;
+let autoClock = 0;
+let lastThrottled = null;   // test hook: set to the block when a scan was throttled
+let blockParseCount = 0;    // test hook: incremented on each real parse pass
+function nowMs() {
+  if (MOCK_NOW !== null) return MOCK_NOW;
+  autoClock += RESCAN_THROTTLE_MS;
+  return autoClock;
+}
+
+function isLiveRegionEl(el) {
+  if (!el || !el.getAttribute) return false;
+  const live = el.getAttribute('aria-live');
+  if (live && live !== 'off') return true;
+  const role = el.getAttribute('role');
+  if (role && LIVE_ROLES.has(role.toLowerCase())) return true;
+  return false;
+}
+
 function processBlockElement(blockEl, currencyParseOpts) {
   if (!blockEl.isConnected) return;
   if (blockEl.dataset.ucScanned) return;
+
+  // Throttle re-scans of the same block.
+  const t = nowMs();
+  const lastScan = blockScanTimes.get(blockEl);
+  if (lastScan !== undefined && t - lastScan < RESCAN_THROTTLE_MS) {
+    blockEl.dataset.ucScanned = '1';
+    lastThrottled = blockEl;
+    return;
+  }
+  blockScanTimes.set(blockEl, t);
+
+  // Skip the whole block if it (or an ancestor) is a live region.
+  for (let a = blockEl; a; a = a.parentElement) {
+    if (isLiveRegionEl(a)) { blockEl.dataset.ucScanned = '1'; return; }
+  }
 
   const textNodes = [];
   const walker = document.createTreeWalker(blockEl, NodeFilter.SHOW_TEXT, {
@@ -110,6 +154,7 @@ function processBlockElement(blockEl, currencyParseOpts) {
       let el = node.parentElement;
       while (el && el !== blockEl) {
         if (el.classList && el.classList.contains('uc-highlight')) return NodeFilter.FILTER_REJECT;
+        if (isLiveRegionEl(el)) return NodeFilter.FILTER_REJECT;
         el = el.parentElement;
       }
       return NodeFilter.FILTER_ACCEPT;
@@ -128,6 +173,9 @@ function processBlockElement(blockEl, currencyParseOpts) {
     fullText += tn.nodeValue;
   }
 
+  if (fullText.length > MAX_BLOCK_TEXT) return;
+
+  blockParseCount++;
   const unitMatches     = window.UnitParser.parse(fullText).map(m => ({ ...m, isCurrency: false }));
   const currencyMatches = window.CurrencyParser.parse(fullText, currencyParseOpts).map(m => ({ ...m, isCurrency: true }));
   const allMatches = [...unitMatches, ...currencyMatches].sort((a, b) => a.index - b.index);
@@ -816,6 +864,186 @@ function mutCheck(desc, ok) {
     span !== null && span.dataset.ucOriginal === '55 mph');
 }
 
+// ---------- Block-guard tests (#2): live regions & oversized blocks ----------
+// Live auctions / countdown timers / status tickers rewrite their content constantly.
+// Highlighting inside them triggers a re-scan storm, so they must be skipped entirely.
+
+let guardPassed = 0, guardFailed = 0;
+const guardFailures = [];
+function guardCheck(desc, ok) {
+  if (ok) { guardPassed++; } else { guardFailed++; guardFailures.push(desc); }
+}
+
+const guardContainer = document.createElement('div');
+document.body.appendChild(guardContainer);
+
+// G1: role="timer" block — never highlighted, but marked scanned so it isn't retried
+{
+  const div = document.createElement('div');
+  div.setAttribute('role', 'timer');
+  div.textContent = 'closes in 30 min';
+  guardContainer.appendChild(div);
+  processBlockElement(div, mutOpts);
+  guardCheck('G1: role="timer" block produces no highlight',
+    div.querySelectorAll('.uc-highlight').length === 0);
+  guardCheck('G1: role="timer" block marked ucScanned (not retried)',
+    div.dataset.ucScanned === '1');
+}
+
+// G2: aria-live="polite" block — skipped
+{
+  const div = document.createElement('div');
+  div.setAttribute('aria-live', 'polite');
+  div.textContent = 'current bid 50 kg';
+  guardContainer.appendChild(div);
+  processBlockElement(div, mutOpts);
+  guardCheck('G2: aria-live="polite" block produces no highlight',
+    div.querySelectorAll('.uc-highlight').length === 0);
+}
+
+// G3: aria-live="off" is NOT a live region — should highlight normally
+{
+  const div = document.createElement('div');
+  div.setAttribute('aria-live', 'off');
+  div.textContent = 'weighs 50 kg';
+  guardContainer.appendChild(div);
+  processBlockElement(div, mutOpts);
+  const span = div.querySelector('.uc-highlight');
+  guardCheck('G3: aria-live="off" block highlights normally',
+    span !== null && span.dataset.ucOriginal === '50 kg');
+}
+
+// G4: live-region descendant inside a normal block — only the non-live text is highlighted
+{
+  const div = document.createElement('div');
+  const normal = document.createElement('span');
+  normal.textContent = 'weighs 2 kg, ';
+  const ticker = document.createElement('span');
+  ticker.setAttribute('role', 'status');
+  ticker.textContent = 'bid now 5 kg';
+  div.appendChild(normal);
+  div.appendChild(ticker);
+  guardContainer.appendChild(div);
+  processBlockElement(div, mutOpts);
+  const origs = [...div.querySelectorAll('.uc-highlight')].map(s => s.dataset.ucOriginal);
+  guardCheck('G4: non-live text in block is highlighted',
+    origs.includes('2 kg'));
+  guardCheck('G4: text inside role="status" descendant is skipped',
+    !origs.includes('5 kg'));
+}
+
+// G5: oversized block — bailed out, no highlight, marked scanned
+{
+  const div = document.createElement('div');
+  // Pad past MAX_BLOCK_TEXT (20000) so the cheap bail triggers before parsing.
+  div.textContent = 'x'.repeat(MAX_BLOCK_TEXT + 100) + ' 50 kg';
+  guardContainer.appendChild(div);
+  processBlockElement(div, mutOpts);
+  guardCheck('G5: oversized block produces no highlight',
+    div.querySelectorAll('.uc-highlight').length === 0);
+  guardCheck('G5: oversized block marked ucScanned (not re-parsed)',
+    div.dataset.ucScanned === '1');
+}
+
+// G6: block just under the cap still highlights normally
+{
+  const div = document.createElement('div');
+  div.textContent = 'y'.repeat(MAX_BLOCK_TEXT - 100) + ' 50 kg';
+  guardContainer.appendChild(div);
+  processBlockElement(div, mutOpts);
+  const span = div.querySelector('.uc-highlight');
+  guardCheck('G6: block under size cap highlights normally',
+    span !== null && span.dataset.ucOriginal === '50 kg');
+}
+
+// ---------- Re-scan throttle tests (#3) ----------
+// A live-updating block must not be re-parsed on every mutation: cap to one parse per window.
+
+let throttlePassed = 0, throttleFailed = 0;
+const throttleFailures = [];
+function throttleCheck(desc, ok) {
+  if (ok) { throttlePassed++; } else { throttleFailed++; throttleFailures.push(desc); }
+}
+
+const throttleContainer = document.createElement('div');
+document.body.appendChild(throttleContainer);
+
+// Emulates the mutation handler unwrapping a stale highlight before re-enqueue, then a value change.
+function pageEdit(blockEl, newValue) {
+  const span = blockEl.querySelector('.uc-highlight');
+  if (span) span.replaceWith(document.createTextNode(newValue));
+  else blockEl.textContent = newValue;
+  delete blockEl.dataset.ucScanned;
+}
+
+// TH1: a re-scan inside the throttle window is suppressed; after the window it runs.
+{
+  const p = document.createElement('p');
+  p.textContent = 'weighs 50 kg';
+  throttleContainer.appendChild(p);
+
+  MOCK_NOW = 10000;
+  lastThrottled = null;
+  const c0 = blockParseCount;
+  processBlockElement(p, mutOpts);
+  throttleCheck('TH1: first scan parses and highlights "50 kg"',
+    blockParseCount === c0 + 1 &&
+    p.querySelector('.uc-highlight') && p.querySelector('.uc-highlight').dataset.ucOriginal === '50 kg');
+  throttleCheck('TH1: first scan not throttled', lastThrottled === null);
+  const c1 = blockParseCount;
+
+  // Page edits 400ms later — still inside the 1000ms window
+  pageEdit(p, 'weighs 60 kg');
+  MOCK_NOW = 10400;
+  lastThrottled = null;
+  processBlockElement(p, mutOpts);
+  throttleCheck('TH1: re-scan within window is throttled', lastThrottled === p);
+  throttleCheck('TH1: throttled block NOT re-parsed', blockParseCount === c1);
+  throttleCheck('TH1: throttled block marked ucScanned (suppresses further enqueues)',
+    p.dataset.ucScanned === '1');
+
+  // Deferred rescan fires after the window (>=1000ms since last real scan at 10000)
+  delete p.dataset.ucScanned;   // scheduleDeferredRescan clears this in production
+  MOCK_NOW = 11000;
+  lastThrottled = null;
+  processBlockElement(p, mutOpts);
+  throttleCheck('TH1: rescan after window runs (re-parsed)', blockParseCount === c1 + 1);
+  throttleCheck('TH1: rescan picks up latest value "60 kg"',
+    p.querySelector('.uc-highlight') && p.querySelector('.uc-highlight').dataset.ucOriginal === '60 kg');
+}
+
+// TH2: many rapid edits within one window cause exactly one extra parse (the deferred one).
+{
+  const p = document.createElement('p');
+  p.textContent = 'speed 100 mph';
+  throttleContainer.appendChild(p);
+
+  MOCK_NOW = 20000;
+  const c0 = blockParseCount;
+  processBlockElement(p, mutOpts);           // initial parse
+  const afterFirst = blockParseCount;
+
+  // 5 edits at 100ms intervals, all inside the window — every one should be throttled
+  for (let i = 1; i <= 5; i++) {
+    pageEdit(p, 'speed ' + (100 + i) + ' mph');
+    MOCK_NOW = 20000 + i * 100;
+    processBlockElement(p, mutOpts);
+  }
+  throttleCheck('TH2: no extra parses during a burst of in-window edits',
+    blockParseCount === afterFirst);
+
+  // Window elapses; deferred rescan captures the final value only
+  delete p.dataset.ucScanned;
+  MOCK_NOW = 21001;
+  processBlockElement(p, mutOpts);
+  throttleCheck('TH2: exactly one parse after the window elapses',
+    blockParseCount === afterFirst + 1);
+  throttleCheck('TH2: final value "105 mph" highlighted',
+    p.querySelector('.uc-highlight') && p.querySelector('.uc-highlight').dataset.ucOriginal === '105 mph');
+}
+
+MOCK_NOW = null;   // restore auto-advancing clock
+
 // ---------- Report ----------
 const total = unitFixtures.length + currencyFixtures.length;
 console.log(`\nScan detection:      ${scanPassed} passed, ${scanFailed} failed, ${total} total`);
@@ -825,7 +1053,9 @@ console.log(`Mixed dedup tests:   ${mixedPassed} passed, ${mixedFailed} failed, 
 console.log(`Split-tag detection: ${splitScanPassed} passed, ${splitScanFailed} failed, ${splitFixtures.length} total`);
 console.log(`Split-tag replace:   ${splitReplacePassed} passed, ${splitReplaceFailed} failed, ${splitFixtures.length} total`);
 console.log(`Split-tag restore:   ${splitRestorePassed} passed, ${splitRestoreFailed} failed (per-span)`);
-console.log(`Dynamic update:      ${mutPassed} passed, ${mutFailed} failed, ${mutPassed + mutFailed} total\n`);
+console.log(`Dynamic update:      ${mutPassed} passed, ${mutFailed} failed, ${mutPassed + mutFailed} total`);
+console.log(`Block guards (#2):   ${guardPassed} passed, ${guardFailed} failed, ${guardPassed + guardFailed} total`);
+console.log(`Rescan throttle (#3):${throttlePassed} passed, ${throttleFailed} failed, ${throttlePassed + throttleFailed} total\n`);
 
 for (const f of scanFailures) {
   const note = f.note ? ` [${f.note}]` : '';
@@ -878,8 +1108,19 @@ for (const msg of mutFailures) {
 }
 if (mutFailures.length) console.log();
 
+for (const msg of guardFailures) {
+  console.log(`FAIL (block guard): ${msg}`);
+}
+if (guardFailures.length) console.log();
+
+for (const msg of throttleFailures) {
+  console.log(`FAIL (rescan throttle): ${msg}`);
+}
+if (throttleFailures.length) console.log();
+
 const anyFailed = scanFailed > 0 || replaceFailed > 0 || restoreFailed > 0 || mixedFailed > 0 ||
-                  splitScanFailed > 0 || splitReplaceFailed > 0 || splitRestoreFailed > 0 || mutFailed > 0;
+                  splitScanFailed > 0 || splitReplaceFailed > 0 || splitRestoreFailed > 0 || mutFailed > 0 ||
+                  guardFailed > 0 || throttleFailed > 0;
 if (!anyFailed) {
   console.log('All DOM toggle tests passed.');
 }
