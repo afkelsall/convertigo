@@ -12,6 +12,8 @@
   let scanIdleId = null;
   let blockScanTimes = new WeakMap();   // block element → timestamp of last scan (#3 throttle)
   let deferredBlocks = new WeakSet();   // blocks with a pending deferred rescan
+  let liveBlocks = new WeakSet();       // blocks detected as live-updating — excluded from scanning
+  let blockActivity = new WeakMap();    // block element → { windowStart, count } for live detection
   let hoverTarget = null;
   let mutationDebounce = null;
   let pendingMutations = [];
@@ -414,6 +416,12 @@
   // Minimum gap between successive scans of the same block. Live-updating pages fire
   // mutations continuously; this caps each block to one re-walk + re-parse per window.
   const RESCAN_THROTTLE_MS = 1000;
+  // Heuristic live-region detection. A block that needs this many scans within the window is
+  // treated as live-updating (countdown timers, streaming bids) and excluded from scanning —
+  // even if it carries no aria-live/role=timer markup (most live pages don't). This breaks the
+  // mutation → unwrap → re-scan loop that pegs the CPU on pages like live auctions.
+  const LIVE_WINDOW_MS = 5000;
+  const LIVE_SCAN_THRESHOLD = 3;
   // Idle deadline for the scan drain. A large timeout means that on a busy main thread
   // (e.g. heavy page load) we defer scan work to genuine idle instead of forcing wakeups.
   const SCAN_IDLE_TIMEOUT = 10000;
@@ -434,6 +442,7 @@
       if (el.isContentEditable) return true;
       if (el.id === POPUP_ID) return true;
       if (el.classList && el.classList.contains('uc-highlight')) return true;
+      if (liveBlocks.has(el)) return true;
       if (isLiveRegionEl(el)) return true;
       el = el.parentElement;
     }
@@ -486,6 +495,7 @@
   function processBlockElement(blockEl) {
     if (!blockEl.isConnected) return;
     if (blockEl.dataset.ucScanned) return;
+    if (liveBlocks.has(blockEl)) { blockEl.dataset.ucScanned = '1'; return; }
 
     // Throttle re-scans of the same block (#3). On live-updating pages a flood of mutations
     // would otherwise re-walk + re-parse this block on every change. If we scanned it too
@@ -499,6 +509,23 @@
       return;
     }
     blockScanTimes.set(blockEl, now);
+
+    // Live-region back-off. Count scans in a rolling window; a block that keeps needing
+    // re-scans is almost certainly live-updating. Once it crosses the threshold, classify it
+    // as live, strip the highlights we added (the page will keep rewriting them otherwise),
+    // and stop — isSkippableNode now rejects everything inside it, so it won't be re-enqueued.
+    const act = blockActivity.get(blockEl);
+    if (!act || now - act.windowStart > LIVE_WINDOW_MS) {
+      blockActivity.set(blockEl, { windowStart: now, count: 1 });
+    } else if (++act.count >= LIVE_SCAN_THRESHOLD) {
+      liveBlocks.add(blockEl);
+      blockActivity.delete(blockEl);
+      blockEl.dataset.ucScanned = '1';
+      blockEl.querySelectorAll('.uc-highlight').forEach(span => {
+        span.replaceWith(document.createTextNode(span.dataset.ucOriginal || span.textContent));
+      });
+      return;
+    }
 
     // Collect all text nodes within this block (not in nested blocks or highlights)
     // Include whitespace-only nodes — they may be separators between inline elements
@@ -1198,6 +1225,8 @@
     scanQueueSet = new WeakSet();
     blockScanTimes = new WeakMap();
     deferredBlocks = new WeakSet();
+    liveBlocks = new WeakSet();
+    blockActivity = new WeakMap();
     pendingMutations = [];
   }
 

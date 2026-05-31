@@ -22,3 +22,6 @@ package-lock.json
 # web-ext runtime files
 .amo-upload-uuid
 web-ext-commands.txt
+
+opusplan.bat
+RELEASE_NOTES.md

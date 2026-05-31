@@ -198,5 +198,64 @@
     "note": "decimal: GBP",
     "input": "£0.99",
     "expected": [{ "currency": "GBP", "value": 0.99, "original": "£0.99" }]
+  },
+  {
+    "note": "symbol after number: EUR (European convention)",
+    "input": "40€",
+    "expected": [{ "currency": "EUR", "value": 40, "original": "40€" }]
+  },
+  {
+    "note": "symbol after number: EUR, larger value",
+    "input": "90€",
+    "expected": [{ "currency": "EUR", "value": 90, "original": "90€" }]
+  },
+  {
+    "note": "symbol after number: GBP",
+    "input": "350£",
+    "expected": [{ "currency": "GBP", "value": 350, "original": "350£" }]
+  },
+  {
+    "note": "symbol after number: JPY",
+    "input": "1000¥",
+    "expected": [{ "currency": "JPY", "value": 1000, "original": "1000¥" }]
+  },
+  {
+    "note": "symbol after number with space",
+    "input": "40 €",
+    "expected": [{ "currency": "EUR", "value": 40, "original": "40 €" }]
+  },
+  {
+    "note": "symbol after number with decimal",
+    "input": "65.50€",
+    "expected": [{ "currency": "EUR", "value": 65.5, "original": "65.50€" }]
+  },
+  {
+    "note": "symbol after number with thousands separator",
+    "input": "1,000€",
+    "expected": [{ "currency": "EUR", "value": 1000, "original": "1,000€" }]
+  },
+  {
+    "note": "symbol after number with multiplier suffix",
+    "input": "5M€",
+    "expected": [{ "currency": "EUR", "value": 5000000, "original": "5M€" }]
+  },
+  {
+    "note": "symbol after number followed by punctuation",
+    "input": "for 80€.",
+    "expected": [{ "currency": "EUR", "value": 80, "original": "80€" }]
+  },
+  {
+    "note": "symbol after number in a sentence",
+    "input": "i can buy the normal version for 90€ springbank",
+    "expected": [{ "currency": "EUR", "value": 90, "original": "90€" }]
+  },
+  {
+    "note": "reddit Scotch thread: multiple euro amounts (number-then-symbol)",
+    "input": "i can buy the normal version for 90€ springbank is in such high demand prices are insane The bunna i can buy for 40€ Casc streanght 2025 for 80€",
+    "expected": [
+      { "currency": "EUR", "value": 90, "original": "90€" },
+      { "currency": "EUR", "value": 40, "original": "40€" },
+      { "currency": "EUR", "value": 80, "original": "80€" }
+    ]
   }
 ]
