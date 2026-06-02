@@ -10,6 +10,8 @@
   let scanQueue = [];
   let scanQueueSet = new WeakSet();
   let scanIdleId = null;
+  let pendingScanRoots = [];             // subtrees awaiting collection — walked lazily at idle, not synchronously
+  let activeCollect = null;              // in-progress (resumable) collection TreeWalker for the current root
   let blockScanTimes = new WeakMap();   // block element → timestamp of last scan (#3 throttle)
   let deferredBlocks = new WeakSet();   // blocks with a pending deferred rescan
   let liveBlocks = new WeakSet();       // blocks detected as live-updating — excluded from scanning
@@ -425,6 +427,15 @@
   // Idle deadline for the scan drain. A large timeout means that on a busy main thread
   // (e.g. heavy page load) we defer scan work to genuine idle instead of forcing wakeups.
   const SCAN_IDLE_TIMEOUT = 10000;
+  // Cap on queued blocks awaiting processing — a safety bound against pathological pages.
+  // Blocks are de-duplicated (scanQueueSet) and marked ucScanned once handled, so the queue
+  // is naturally bounded by the number of distinct unscanned blocks on the page. This needs to
+  // be high enough not to drop real blocks on large pages (e.g. big Reddit comment trees), or
+  // those values silently never get highlighted.
+  const MAX_QUEUE = 8000;
+  // Minimum idle time (ms) we require before doing another walk step, so a single collection
+  // chunk can't overrun the frame budget. Collection resumes on the next idle callback.
+  const COLLECT_MIN_SLICE = 2;
 
   function isLiveRegionEl(el) {
     if (!el || !el.getAttribute) return false;
@@ -462,25 +473,71 @@
     return document.body;
   }
 
-  function collectBlockElements(root, out) {
-    const seen = new Set();
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+  function makeCollectWalker(root) {
+    return document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         if (isSkippableNode(node)) return NodeFilter.FILTER_REJECT;
         if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT;
       }
     });
-    let node;
-    while ((node = walker.nextNode())) {
-      const block = getBlockAncestor(node);
-      if (block.dataset.ucScanned) continue;
-      if (scanQueueSet.has(block)) continue;
-      if (!seen.has(block)) {
-        seen.add(block);
-        scanQueueSet.add(block);
-        out.push(block);
+  }
+
+  // Reduce a batch of subtree roots to only the top-most ones: drop any root that is a
+  // descendant of another root in the same batch. When a page inserts a subtree, the observer
+  // reports the container AND many of its descendants as separate added nodes; without this,
+  // we would walk the container's whole subtree once per nested root — an O(n × depth) blowup
+  // (measured at ~60× redundant text-node visits and a 16s freeze on a Reddit comment tree).
+  // Walking only the top-most roots covers every descendant exactly once.
+  function coalesceRoots(roots) {
+    const set = new Set(roots);
+    const top = [];
+    for (const r of set) {
+      if (!r || !r.isConnected) continue;
+      let p = r.parentElement, covered = false;
+      while (p) {
+        if (set.has(p)) { covered = true; break; }
+        p = p.parentElement;
       }
+      if (!covered) top.push(r);
+    }
+    return top;
+  }
+
+  // Queue a subtree for scanning. The actual (potentially huge) DOM walk is deferred to the
+  // idle drain — never done synchronously here — so a large insertion can't freeze the page.
+  function enqueueSubtree(root) {
+    if (!root) return;
+    pendingScanRoots.push(root);
+    if (!scanIdleId) {
+      scanIdleId = requestIdleCallback(drainScanQueue, { timeout: SCAN_IDLE_TIMEOUT });
+    }
+  }
+
+  // Walk pending roots into the block queue, budgeted by the idle deadline. A root too large
+  // to finish in one slice leaves its walker in activeCollect to resume on the next idle call.
+  function collectStep(deadline) {
+    while ((activeCollect || pendingScanRoots.length) && deadline.timeRemaining() > COLLECT_MIN_SLICE) {
+      if (!activeCollect) {
+        const root = pendingScanRoots.shift();
+        if (!root || !root.isConnected) continue;
+        activeCollect = makeCollectWalker(root);
+      }
+      let finished = false;
+      while (deadline.timeRemaining() > COLLECT_MIN_SLICE) {
+        const node = activeCollect.nextNode();
+        if (!node) { finished = true; break; }
+        const block = getBlockAncestor(node);
+        if (block.dataset.ucScanned || scanQueueSet.has(block)) continue;
+        scanQueueSet.add(block);
+        scanQueue.push(block);
+      }
+      if (finished) activeCollect = null;
+      else break;   // deadline hit mid-root; resume next idle
+    }
+    if (scanQueue.length > MAX_QUEUE) {
+      const dropped = scanQueue.splice(0, scanQueue.length - MAX_QUEUE);
+      for (const el of dropped) scanQueueSet.delete(el);
     }
   }
 
@@ -647,6 +704,9 @@
 
   function drainScanQueue(deadline) {
     scanIdleId = null;
+    // Phase 1: lazily walk pending subtrees into the block queue, budgeted by the deadline.
+    collectStep(deadline);
+    // Phase 2: process queued blocks until the deadline runs out.
     while (scanQueue.length > 0 && deadline.timeRemaining() > 5) {
       const blockEl = scanQueue.shift();
       scanQueueSet.delete(blockEl);
@@ -658,19 +718,8 @@
     // runs synchronously right after our writes, so the only queued records are ours — any real
     // page mutations were already delivered to the observer before this idle callback ran.
     if (ucObserver) ucObserver.takeRecords();
-    if (scanQueue.length > 0) {
-      scanIdleId = requestIdleCallback(drainScanQueue, { timeout: SCAN_IDLE_TIMEOUT });
-    }
-  }
-
-  function enqueueSubtree(root) {
-    const MAX_QUEUE = 500;
-    collectBlockElements(root, scanQueue);
-    if (scanQueue.length > MAX_QUEUE) {
-      const dropped = scanQueue.splice(0, scanQueue.length - MAX_QUEUE);
-      for (const el of dropped) scanQueueSet.delete(el);
-    }
-    if (!scanIdleId) {
+    // Reschedule if any collection or processing work remains.
+    if (scanQueue.length > 0 || pendingScanRoots.length > 0 || activeCollect) {
       scanIdleId = requestIdleCallback(drainScanQueue, { timeout: SCAN_IDLE_TIMEOUT });
     }
   }
@@ -1165,6 +1214,9 @@
         mutationDebounce = setTimeout(() => {
           const batch = pendingMutations;
           pendingMutations = [];
+          // Gather candidate scan roots; coalesced and enqueued once below so overlapping
+          // added subtrees aren't walked repeatedly. Stale-span unwrapping stays synchronous.
+          const roots = [];
           for (const m of batch) {
             if (m.type === 'characterData') {
               const el = m.target.parentElement;
@@ -1179,12 +1231,12 @@
                 staleSpan.replaceWith(document.createTextNode(staleSpan.textContent));
                 if (rescanRoot) {
                   delete rescanRoot.dataset.ucScanned;
-                  enqueueSubtree(rescanRoot);
+                  roots.push(rescanRoot);
                 }
               } else if (!isSkippableNode(el)) {
                 const block = getBlockAncestor(el);
                 if (block) delete block.dataset.ucScanned;
-                enqueueSubtree(block || el);
+                roots.push(block || el);
               }
               continue;
             }
@@ -1200,22 +1252,25 @@
                   parent.replaceWith(document.createTextNode(parent.textContent));
                   if (rescanRoot) {
                     delete rescanRoot.dataset.ucScanned;
-                    enqueueSubtree(rescanRoot);
+                    roots.push(rescanRoot);
                   }
                 } else if (!isSkippableNode(parent)) {
                   // Plain text node added (e.g. page set .textContent replacing our span)
                   const block = getBlockAncestor(parent);
                   if (block) delete block.dataset.ucScanned;
-                  enqueueSubtree(block || parent);
+                  roots.push(block || parent);
                 }
               } else if (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('uc-highlight')) {
                 // New element added — clear scanned flag so its block gets re-scanned
                 const block = getBlockAncestor(node);
                 if (block) delete block.dataset.ucScanned;
-                enqueueSubtree(node);
+                roots.push(node);
               }
             }
           }
+          // Coalesce overlapping roots, then queue them. The heavy subtree walk happens later,
+          // chunked, in the idle drain — never synchronously here.
+          for (const r of coalesceRoots(roots)) enqueueSubtree(r);
           // Unwrapping stale spans above generates its own childList mutations. We've already
           // re-enqueued the affected blocks explicitly, so discard those self-generated records
           // to avoid a redundant second pass on the next observer tick.
@@ -1244,6 +1299,8 @@
     }
     scanQueue.length = 0;
     scanQueueSet = new WeakSet();
+    pendingScanRoots = [];
+    activeCollect = null;
     blockScanTimes = new WeakMap();
     deferredBlocks = new WeakSet();
     liveBlocks = new WeakSet();
