@@ -67,7 +67,8 @@ function processTextNode(textNode, currencyParseOpts) {
   const unitMatches     = window.UnitParser.parse(text).map(m => ({ ...m, isCurrency: false }));
   const currencyMatches = window.CurrencyParser.parse(text, currencyParseOpts).map(m => ({ ...m, isCurrency: true }));
 
-  const allMatches = [...unitMatches, ...currencyMatches].sort((a, b) => a.index - b.index);
+  // Tie-break equal start positions by longer match first (leftmost-longest) — mirrors content.js.
+  const allMatches = [...unitMatches, ...currencyMatches].sort((a, b) => a.index - b.index || b.matchLength - a.matchLength);
   const deduped = [];
   let lastEnd = -1;
   for (const m of allMatches) {
@@ -102,6 +103,16 @@ function processTextNode(textNode, currencyParseOpts) {
 // Mirrors content.js block guards (#2): skip live regions and oversized blocks.
 const LIVE_ROLES = new Set(['timer', 'status', 'alert', 'marquee', 'progressbar']);
 const MAX_BLOCK_TEXT = 20000;
+
+// Mirrors content.js SKIP_TAGS / BLOCK_TAGS — used by the pruned own-text walk (#6).
+const SKIP_TAGS = new Set(['SCRIPT','STYLE','NOSCRIPT','IFRAME','TEXTAREA','INPUT','SELECT','BUTTON']);
+const BLOCK_TAGS = new Set([
+  'ADDRESS','ARTICLE','ASIDE','BLOCKQUOTE','BODY','DD','DETAILS','DIALOG',
+  'DIV','DL','DT','FIELDSET','FIGCAPTION','FIGURE','FOOTER','FORM',
+  'H1','H2','H3','H4','H5','H6','HEADER','HGROUP','HR','LI','MAIN',
+  'NAV','OL','P','PRE','SECTION','SUMMARY','TABLE','TBODY','TD','TFOOT',
+  'TH','THEAD','TR','UL'
+]);
 
 // Mirrors content.js re-scan throttle (#3). nowMs() is an injectable clock: when MOCK_NOW
 // is null (the default) it auto-advances a full window per call, so back-to-back scans of the
@@ -147,19 +158,26 @@ function processBlockElement(blockEl, currencyParseOpts) {
     if (isLiveRegionEl(a)) { blockEl.dataset.ucScanned = '1'; return; }
   }
 
+  // Pruned own-text walk (#6): reject nested-block and skippable subtrees up front so the
+  // block visits only its own text, instead of walking every descendant and filtering by
+  // getBlockAncestor. Mirrors content.js processBlockElement.
   const textNodes = [];
-  const walker = document.createTreeWalker(blockEl, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
-      let el = node.parentElement;
-      while (el && el !== blockEl) {
-        if (el.classList && el.classList.contains('uc-highlight')) return NodeFilter.FILTER_REJECT;
-        if (isLiveRegionEl(el)) return NodeFilter.FILTER_REJECT;
-        el = el.parentElement;
+  const walker = document.createTreeWalker(
+    blockEl,
+    NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+    {
+      acceptNode(node) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          if (BLOCK_TAGS.has(node.tagName)) return NodeFilter.FILTER_REJECT;
+          if (SKIP_TAGS.has(node.tagName)) return NodeFilter.FILTER_REJECT;
+          if (node.classList && node.classList.contains('uc-highlight')) return NodeFilter.FILTER_REJECT;
+          if (isLiveRegionEl(node)) return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_SKIP;
+        }
+        return node.nodeValue ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       }
-      return NodeFilter.FILTER_ACCEPT;
     }
-  });
+  );
   let n;
   while ((n = walker.nextNode())) textNodes.push(n);
 
@@ -178,7 +196,8 @@ function processBlockElement(blockEl, currencyParseOpts) {
   blockParseCount++;
   const unitMatches     = window.UnitParser.parse(fullText).map(m => ({ ...m, isCurrency: false }));
   const currencyMatches = window.CurrencyParser.parse(fullText, currencyParseOpts).map(m => ({ ...m, isCurrency: true }));
-  const allMatches = [...unitMatches, ...currencyMatches].sort((a, b) => a.index - b.index);
+  // Tie-break equal start positions by longer match first (leftmost-longest) — mirrors content.js.
+  const allMatches = [...unitMatches, ...currencyMatches].sort((a, b) => a.index - b.index || b.matchLength - a.matchLength);
 
   const deduped = [];
   let lastEnd = -1;

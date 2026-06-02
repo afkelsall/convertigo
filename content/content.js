@@ -435,15 +435,19 @@
     return false;
   }
 
+  function isSkippableElement(el) {
+    return SKIP_TAGS.has(el.tagName)
+      || el.isContentEditable
+      || el.id === POPUP_ID
+      || (el.classList && el.classList.contains('uc-highlight'))
+      || liveBlocks.has(el)
+      || isLiveRegionEl(el);
+  }
+
   function isSkippableNode(node) {
     let el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
     while (el) {
-      if (SKIP_TAGS.has(el.tagName)) return true;
-      if (el.isContentEditable) return true;
-      if (el.id === POPUP_ID) return true;
-      if (el.classList && el.classList.contains('uc-highlight')) return true;
-      if (liveBlocks.has(el)) return true;
-      if (isLiveRegionEl(el)) return true;
+      if (isSkippableElement(el)) return true;
       el = el.parentElement;
     }
     return false;
@@ -527,20 +531,34 @@
       return;
     }
 
-    // Collect all text nodes within this block (not in nested blocks or highlights)
-    // Include whitespace-only nodes — they may be separators between inline elements
+    // Collect this block's own text nodes (not in nested blocks or highlights).
+    // Include whitespace-only nodes — they may be separators between inline elements.
+    //
+    // We walk elements as well as text so we can FILTER_REJECT entire nested-block and
+    // skippable subtrees up front. This is what makes the scan cheap on pages with deep,
+    // custom-element-heavy DOMs (e.g. Reddit's shreddit components): the old approach walked
+    // every descendant text node and called getBlockAncestor() on each to discard the ones
+    // belonging to nested blocks, so a near-root block (BODY/MAIN) effectively re-walked the
+    // whole document on every (re)scan — quadratic, and the source of the multi-second freeze.
+    // Pruning at the element level means each block visits only its own text. The set of
+    // collected nodes is identical to the old getBlockAncestor filter (verified zero-diff).
     const textNodes = [];
-    const walker = document.createTreeWalker(blockEl, NodeFilter.SHOW_TEXT, {
-      acceptNode(node) {
-        if (isSkippableNode(node)) return NodeFilter.FILTER_REJECT;
-        if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
-        return NodeFilter.FILTER_ACCEPT;
+    const walker = document.createTreeWalker(
+      blockEl,
+      NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            if (BLOCK_TAGS.has(node.tagName)) return NodeFilter.FILTER_REJECT;
+            if (isSkippableElement(node)) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_SKIP;
+          }
+          return node.nodeValue ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        }
       }
-    });
+    );
     let n;
-    while ((n = walker.nextNode())) {
-      if (getBlockAncestor(n) === blockEl) textNodes.push(n);
-    }
+    while ((n = walker.nextNode())) textNodes.push(n);
 
     blockEl.dataset.ucScanned = '1';
     if (textNodes.length === 0) return;
@@ -561,8 +579,11 @@
     const unitMatches = window.UnitParser.parse(fullText).map(m => ({ ...m, isCurrency: false }));
     const currencyMatches = window.CurrencyParser.parse(fullText, getCurrencyParseOptions()).map(m => ({ ...m, isCurrency: true }));
 
-    // Merge, sort by index, deduplicate overlaps
-    const allMatches = [...unitMatches, ...currencyMatches].sort((a, b) => a.index - b.index);
+    // Merge, sort by index, deduplicate overlaps. Tie-break equal start positions by longer
+    // match first (leftmost-longest) so a complete currency match wins over a shorter unit
+    // match that shares its start — e.g. "5M€" (€5M) must beat "5M" parsed as 5 metres.
+    const allMatches = [...unitMatches, ...currencyMatches]
+      .sort((a, b) => a.index - b.index || b.matchLength - a.matchLength);
     const deduped = [];
     let lastEnd = -1;
     for (const m of allMatches) {
