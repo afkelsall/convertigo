@@ -1261,6 +1261,12 @@
                   roots.push(block || parent);
                 }
               } else if (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('uc-highlight')) {
+                // Skip elements added inside skippable subtrees (contenteditable / input /
+                // textarea). Rich-text editors like Reddit's Lexical composer churn elements on
+                // every keystroke; scanning them yields nothing, and clearing ucScanned on their
+                // block ancestor forces a needless re-parse of the enclosing block — the source of
+                // stuttery text entry. Symmetric with the text-node branch's isSkippableNode guard.
+                if (isSkippableNode(node)) continue;
                 // New element added — clear scanned flag so its block gets re-scanned
                 const block = getBlockAncestor(node);
                 if (block) delete block.dataset.ucScanned;
