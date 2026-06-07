@@ -25,3 +25,8 @@ web-ext-commands.txt
 
 opusplan.bat
 RELEASE_NOTES.md
+
+# Dev scratch: saved pages used for ad-hoc perf/debugging (not shipped, not committed).
+# Tests that consume these (e.g. tests/run-editable-mutation.js) degrade gracefully when absent.
+examples/
+reddit_entry.txt

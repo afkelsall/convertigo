@@ -50,11 +50,18 @@ tag the release. Final upload to AMO is a manual browser step (instructions at t
 Run the saved build command (also stored in the gitignored `web-ext-commands.txt`):
 
 ```
-node "C:\My Junk\Programming\convertigo\node_modules\web-ext\bin\web-ext" build --source-dir "C:\My Junk\Programming\convertigo" --artifacts-dir "C:\My Junk\Programming\convertigo\web-ext-artifacts" --ignore-files web-ext-commands.txt --overwrite-dest
+node "C:\My Junk\Programming\convertigo\node_modules\web-ext\bin\web-ext" build --source-dir "C:\My Junk\Programming\convertigo" --artifacts-dir "C:\My Junk\Programming\convertigo\web-ext-artifacts" --overwrite-dest --ignore-files "tests/**" "examples/**" "screenshots/**" "**/*.md" "**/*.lnk" "**/*.bat" "**/*.txt" "**/*.log" "package.json" "package-lock.json" "LICENSE"
 ```
 
+web-ext does NOT read `.gitignore` and only auto-ignores dotfiles + `node_modules`, so the
+`--ignore-files` patterns above are required — without them the zip balloons with the repo's
+dev cruft (the `examples/` saved pages, `tests/`, `CLAUDE.md`, `.lnk` shortcuts,
+`package-lock.json`, `RELEASE_NOTES.md`, etc.). Only the actual extension should ship:
+`manifest.json`, `icons/`, `lib/`, `content/`, `options/`, `background/`.
+
 Output lands at `web-ext-artifacts/convertigo-<version>.zip`. Confirm the filename matches
-the new version.
+the new version, then **verify the contents** with `unzip -l <zip>` — it should list ~21
+files and none of the dev cruft above.
 
 ### 5. Commit and tag
 - Stage only the version bump: `git -C "<repo>" add manifest.json`
