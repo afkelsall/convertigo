@@ -21,6 +21,7 @@
   let pendingMutations = [];
   let isReplaceActive = false;
   let replacedSpans = [];
+  let spanSavedNodes = new WeakMap(); // span → detached child nodes saved before replacement
 
   // Settings — initialized to defaults, loaded async on startup
   let settings = Object.assign({}, window.ConvertigoSettings.DEFAULTS);
@@ -903,7 +904,7 @@
     }
 
     if (!replacement) return;
-    if (!span.dataset.ucInnerHtml) span.dataset.ucInnerHtml = span.innerHTML;
+    if (!spanSavedNodes.has(span)) spanSavedNodes.set(span, Array.from(span.childNodes));
     span.textContent = replacement;
     span.classList.add('uc-alt-replaced');
     replacedSpans.push(span);
@@ -937,9 +938,11 @@
     if (settings.permanentReplace) return;
     isReplaceActive = false;
     replacedSpans.forEach(span => {
-      if (span.dataset.ucInnerHtml) {
-        span.innerHTML = span.dataset.ucInnerHtml;
-        delete span.dataset.ucInnerHtml;
+      const saved = spanSavedNodes.get(span);
+      if (saved) {
+        span.textContent = '';
+        saved.forEach(n => span.appendChild(n));
+        spanSavedNodes.delete(span);
       } else if (span.dataset.ucOriginal) {
         span.textContent = span.dataset.ucOriginal;
       }
