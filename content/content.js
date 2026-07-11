@@ -955,11 +955,17 @@
   }
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === settings.replaceKey) activateReplace();
+    if (e.key === settings.replaceKey) { activateReplace(); return; }
+    // Reconcile a stuck-active state: if the replace key's keyup was never delivered (Alt reveals
+    // the browser menu / Alt+Tab steals focus mid-hold), the next keystroke — e.g. typing a
+    // comment — reveals the modifier is no longer held, so clear it. Without this, page-scanned
+    // units stay replaced without hover and the re-scan churn adds typing lag.
+    if (!isReplaceKeyHeld(e) && isReplaceActive) deactivateReplace();
   });
 
   document.addEventListener('keyup', (e) => {
-    if (e.key === settings.replaceKey) deactivateReplace();
+    if (e.key === settings.replaceKey) { deactivateReplace(); return; }
+    if (!isReplaceKeyHeld(e) && isReplaceActive) deactivateReplace();
   });
 
   // Detect modifier held across page loads (keydown auto-repeat may not fire)

@@ -648,5 +648,46 @@
     "note": "decimal: fuel km/l",
     "input": "15.5 km/l",
     "expected": ["15.5 km/l → 36.46 MPG", "15.5 km/l → 6.45 L/100km"]
+  },
+
+  {
+    "note": "prepositional 'in' before a number (range) is not inches",
+    "input": "40-50 in 60km zones",
+    "expected": ["60km → 37.28 mi"]
+  },
+  {
+    "note": "prepositional 'in' before an article is not inches",
+    "input": "85 in a 70 and then 50",
+    "expected": []
+  },
+  {
+    "note": "prepositional 'in' odds phrasing (1 in 3) is not inches",
+    "input": "1 in 3 people",
+    "expected": []
+  },
+  {
+    "note": "prepositional 'in' before 'the' is not inches",
+    "input": "put 6 in the box",
+    "expected": []
+  },
+  {
+    "note": "bare 'in' at end of string stays inches",
+    "input": "Cut it to 3/4 in",
+    "expected": ["3/4 in → 1.91 cm"]
+  },
+  {
+    "note": "bare 'in' followed by a descriptor word stays inches",
+    "input": "The gap is 6 in wide",
+    "expected": ["6 in → 15.24 cm"]
+  },
+  {
+    "note": "bare 'in' followed by 'of' stays inches",
+    "input": "We got 6 in of snow",
+    "expected": ["6 in → 15.24 cm"]
+  },
+  {
+    "note": "attached 'in' before a number still parses as inches",
+    "input": "a 40in 60 zone",
+    "expected": ["40in → 101.6 cm"]
   }
 ]
